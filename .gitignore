@@ -11,5 +11,10 @@
 # Build output
 build/
 
+# Binary files
+*.dll
+*.exe
+*.japk
+
 # Rust build output
 rust/target/
