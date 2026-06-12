@@ -34,17 +34,28 @@ Jade_ec/
 
 <!-- 在下方添加截图，格式：![描述](相对路径) -->
 
-主界面：
+#### 主界面：
 
-![主界面](screenshots/main.png)
+<img width="1097" height="713" alt="QQ20260612-212518" src="https://github.com/user-attachments/assets/364c856f-18ff-4d4c-8d8a-8ae4af2d1448" />
 
-搜索功能：
 
-![搜索](screenshots/search.png)
+#### 搜索功能：
+> 支持 / 选择多种搜索模式
+<img width="1068" height="703" alt="QQ20260612-212604" src="https://github.com/user-attachments/assets/f0b8c5b2-2c24-4b3b-8d81-7a928de6d7d3" />
 
-设置页面：
+> 支持 空格搜索多个关键词
+<img width="1107" height="721" alt="QQ20260612-212645" src="https://github.com/user-attachments/assets/05bec973-f814-42a8-8ddd-1647f45d7f43" />
 
-![设置](screenshots/settings.png)
+
+#### 设置页面：
+> 支持 多种背景材料 与 内容页背景无极透明度设置
+<img width="1102" height="775" alt="QQ20260612-212733" src="https://github.com/user-attachments/assets/f95f2a97-8c63-4fe7-b4a1-69e521e73ed9" />
+
+#### 深色与浅色：
+> 支持 深色、浅色 或跟随系统主题
+<img width="1083" height="709" alt="QQ20260612-213337" src="https://github.com/user-attachments/assets/4647f635-d403-489c-8d1d-11600879b97d" />
+
+
 
 ## 功能
 
