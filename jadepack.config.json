@@ -1,0 +1,40 @@
+{
+  "sourceDir": "D:\\nodejsApp\\Jade_ec\\web",
+  "outputFile": "D:\\nodejsApp\\Jade_ec\\dist\\app.japk",
+  "options": {
+    "includeHidden": false,
+    "followSymlinks": false,
+    "sortByPath": true,
+    "unpackPatternInput": "**/*.node\n**/*.dll"
+  },
+  "nsis": {
+    "appDir": "D:\\nodejsApp\\Jade_ec\\dist",
+    "mainExe": "",
+    "appName": "Jade EC查看器",
+    "appVersion": "1.1.0.0",
+    "versionMode": "follow",
+    "appId": "jade_ec.jade.run",
+    "iconPath": "",
+    "outputDir": "C:\\Users\\ihanl\\Desktop",
+    "installDir": "",
+    "installScope": "both",
+    "languages": [
+      "SimpChinese",
+      "English"
+    ],
+    "createDesktopShortcut": true,
+    "excludeFiles": [],
+    "compressionLevel": 3,
+    "webview2": {
+      "mode": "downloadBootstrapper",
+      "minVersion": ""
+    },
+    "fileAssociations": [
+      {
+        "ext": ".ec",
+        "description": "易语言模块"
+      }
+    ]
+  },
+  "updatedAt": "2026-06-12T13:11:24.682Z"
+}

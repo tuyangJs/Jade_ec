@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jade EC查看器</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="preload" href="logo.svg" as="image">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cn-fontsource-source-han-sans-sc-vf@1.0.10/font.min.css" media="print" onload="this.media='all'">
+</head>
+
+<body>
+  <div class="app">
+    <!-- 侧边栏 -->
+    <aside class="sidebar" id="sidebar" style="display:none">
+      <div class="sidebar-header">
+        <div class="sidebar-logo-row">
+          <img class="sidebar-logo" src="logo.svg" alt="">
+          <span class="sidebar-brand">Jade EC查看器</span>
+        </div>
+        <button class="open-file-btn" id="openFileBtn">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M2 4v9h12V6H8L6 4H2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+          </svg>
+          打开模块
+        </button>
+        <div class="module-card">
+          <div class="module-name-row">
+            <h1 class="module-name" id="moduleName">未加载</h1>
+            <span class="module-version" id="moduleVersion"></span>
+          </div>
+          <p class="module-author" id="moduleAuthor"></p>
+
+          <button class="module-info-btn" id="moduleInfoBtn">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3" />
+              <path d="M8 7v4M8 5.5v0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+            </svg>
+            模块信息
+          </button>
+        </div>
+          <button class="module-info-compact-btn" id="moduleInfoCompactBtn" title="">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3" />
+              <path d="M8 7v4M8 5.5v0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+            </svg>
+          </button>
+ 
+      </div>
+      <nav class="sidebar-nav" id="sidebarNav">
+        <button class="nav-item nav-search-item" data-category="search">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          <span>搜索</span>
+        </button>
+        <button class="nav-item active" data-category="subroutines">
+          <svg width="16" height="16" viewBox="0 0 1024 1024" fill="none">
+            <path d="M512 64C262.4 64 64 262.4 64 512c6.4 19.2 12.8 32 32 32s32-12.8 38.4-32c0-211.2 172.8-377.6 377.6-377.6 211.2 0 377.6 172.8 377.6 377.6s-172.8 377.6-377.6 377.6c-38.4 0-76.8-6.4-115.2-19.2-25.6-6.4-44.8-19.2-70.4-32l44.8-268.8h230.4c19.2 0 38.4-19.2 38.4-38.4s-12.8-38.4-38.4-38.4H384l25.6-134.4h236.8c25.6 0 38.4-19.2 38.4-38.4 0-25.6-19.2-38.4-38.4-38.4H345.6l-108.8 595.2c38.4 32 89.6 51.2 134.4 64 44.8 12.8 89.6 19.2 134.4 19.2 249.6 0 448-198.4 448-448 6.4-249.6-192-448-441.6-448z" fill="currentColor"/>
+          </svg>
+          <span>子程序</span>
+          <span class="nav-count" id="countSubroutines">0</span>
+        </button>
+        <button class="nav-item" data-category="dllCommands">
+          <svg width="16" height="16" viewBox="0 0 1024 1024" fill="none">
+            <path d="M940.8 499.2c0-6.4-32-115.2-102.4-332.8-6.4-19.2-25.6-38.4-51.2-38.4H256c-25.6 0-44.8 12.8-51.2 38.4L102.4 499.2v371.2c0 32 25.6 51.2 51.2 51.2h729.6c32 0 51.2-25.6 51.2-51.2l6.4-371.2zM268.8 185.6h518.4l89.6 288h-224c-6.4 0-12.8 0-19.2 6.4-6.4 6.4-6.4 12.8-6.4 19.2 0 51.2-44.8 96-96 96s-96-44.8-96-96c0-19.2-12.8-32-32-32H179.2l89.6-281.6z m128 57.6c-19.2 0-32 12.8-32 32s12.8 32 32 32h268.8c19.2 0 32-12.8 32-32s-12.8-32-32-32H396.8zM326.4 358.4c-19.2 0-32 12.8-32 32s12.8 32 32 32h403.2c19.2 0 32-12.8 32-32s-12.8-32-32-32H326.4z" fill="currentColor"/>
+          </svg>
+          <span>DLL 命令</span>
+          <span class="nav-count" id="countDllCommands">0</span>
+        </button>
+        <button class="nav-item" data-category="classes">
+          <svg width="16" height="16" viewBox="0 0 1024 1024" fill="none">
+            <path d="M825.6 460.8c-12.8 0-32 6.4-44.8 12.8l-115.2-108.8c6.4-19.2 12.8-38.4 12.8-57.6 0-64-51.2-121.6-121.6-121.6-64 0-121.6 51.2-121.6 121.6 0 44.8 19.2 76.8 51.2 102.4L409.6 640h-6.4c-25.6 0-51.2 6.4-70.4 19.2L243.2 582.4c6.4-12.8 6.4-19.2 6.4-32 0-51.2-38.4-89.6-89.6-89.6-51.2 0-89.6 38.4-89.6 89.6 0 51.2 38.4 89.6 89.6 89.6 19.2 0 32-6.4 44.8-12.8L294.4 704c-6.4 12.8-12.8 32-12.8 51.2 0 64 51.2 121.6 121.6 121.6 64 0 121.6-51.2 121.6-121.6 0-44.8-19.2-76.8-51.2-102.4l76.8-230.4h6.4c25.6 0 44.8-6.4 64-19.2L736 512c-6.4 12.8-6.4 19.2-6.4 32 0 51.2 38.4 89.6 89.6 89.6 51.2 0 89.6-38.4 89.6-89.6s-32-83.2-83.2-83.2z m-409.6 352c-32 0-57.6-25.6-57.6-57.6s25.6-57.6 57.6-57.6 57.6 25.6 57.6 57.6-25.6 57.6-57.6 57.6z" fill="currentColor"/>
+          </svg>
+          <span>类</span>
+          <span class="nav-count" id="countClasses">0</span>
+        </button>
+        <button class="nav-item" data-category="dataTypes">
+          <svg width="16" height="16" viewBox="0 0 1024 1024" fill="none">
+            <path d="M384 806.4l275.2-275.2-57.6-57.6-19.2 19.2c-12.8 12.8-38.4 12.8-51.2 0-12.8-12.8-12.8-38.4 0-51.2l19.2-19.2c25.6-25.6 64-25.6 89.6 0l64 70.4c25.6 25.6 25.6 64 0 89.6l-275.2 275.2c6.4 12.8 12.8 32 12.8 44.8 0 51.2-44.8 96-96 96S256 947.2 256 896s44.8-96 96-96c12.8 0 25.6 0 32 6.4z m275.2-563.2L384 518.4l57.6 57.6 19.2-19.2c12.8-12.8 38.4-12.8 51.2 0 12.8 12.8 12.8 38.4 0 51.2l-25.6 25.6c-25.6 25.6-64 25.6-89.6 0l-64-70.4c-25.6-25.6-25.6-64 0-89.6L614.4 192c-6.4-12.8-6.4-19.2-6.4-32 0-51.2 44.8-96 96-96s96 44.8 96 96S755.2 256 704 256c-19.2 0-32-6.4-44.8-12.8z m198.4 275.2l-128-128c-12.8-12.8-12.8-38.4 0-51.2 12.8-12.8 38.4-12.8 51.2 0l128 128c12.8 12.8 19.2 32 19.2 51.2 0 19.2-6.4 38.4-19.2 51.2l-128 128c-12.8 12.8-38.4 12.8-51.2 0-12.8-12.8-12.8-38.4 0-51.2l128-128z m-691.2 0l128 128c12.8 12.8 12.8 38.4 0 51.2-12.8 12.8-38.4 12.8-51.2 0l-128-128c-12.8-12.8-19.2-32-19.2-51.2 0-19.2 6.4-38.4 19.2-51.2l128-128c12.8-12.8 38.4-12.8 51.2 0 12.8 12.8 12.8 38.4 0 51.2l-128 128z" fill="currentColor"/>
+          </svg>
+          <span>自定义数据类型</span>
+          <span class="nav-count" id="countDataTypes">0</span>
+        </button>
+        <button class="nav-item" data-category="globalVars">
+          <svg width="16" height="16" viewBox="0 0 1024 1024" fill="none">
+            <path d="M187.684571 841.142857h38.144v-43.556571H208.091429c-38.802286 0-49.005714-17.042286-49.005715-64.694857 0-44.251429 4.059429-83.748571 4.059429-134.107429 0-51.712-14.262857-76.214857-49.700572-85.065143v-3.437714c35.401143-8.850286 49.737143-32.658286 49.737143-85.065143 0-50.395429-4.096-89.856-4.096-134.107429 0-47.652571 10.203429-65.353143 49.005715-65.353142h17.700571V182.857143H187.684571c-63.268571 0-91.904 23.808-91.904 104.155428 0 55.149714 6.838857 91.904 6.838858 142.957715 0 27.904-14.299429 57.197714-66.048 57.856v47.652571c51.748571 0.694857 66.048 29.988571 66.048 59.245714 0 50.358857-6.838857 87.113143-6.838858 142.262858 0 80.347429 28.598857 104.155429 91.904 104.155428z m173.202286-116.406857h77.604572v-265.508571c33.353143-33.353143 57.197714-51.053714 91.904-51.053715 44.251429 0 63.305143 25.892571 63.305142 90.550857v226.011429h78.299429v-235.52c0-95.341714-35.401143-148.406857-115.053714-148.406857-51.053714 0-89.161143 27.904-123.904 61.257143h-2.011429l-6.144-51.748572h-64v374.418286zM802.304 841.142857v-43.556571h17.700571c38.802286 0 49.005714-17.042286 49.005715-64.694857 0-44.251429-3.364571-83.748571-3.364572-134.107429 0-51.712 13.604571-76.214857 49.005715-85.065143v-3.437714c-35.401143-8.850286-49.005714-32.658286-49.005715-85.065143 0-50.395429 3.401143-89.856 3.401143-134.107429 0-47.652571-10.24-65.353143-49.005714-65.353142h-17.737143V182.857143h38.144c63.268571 0 92.562286 23.808 92.562286 104.155428 0 55.149714-6.802286 91.904-6.802286 142.957715 0 27.904 14.299429 57.197714 65.353143 57.856v47.652571c-51.053714 0.694857-65.353143 29.988571-65.353143 59.245714 0 50.358857 6.802286 87.113143 6.802286 142.262858 0 80.347429-29.257143 104.155429-92.562286 104.155428h-38.144z" fill="currentColor"/>
+          </svg>
+          <span>全局变量</span>
+          <span class="nav-count" id="countGlobalVars">0</span>
+        </button>
+        <button class="nav-item" data-category="constants">
+          <svg width="16" height="16" viewBox="0 0 1024 1024" fill="none">
+            <path d="M832 704c38.4 0 64 25.6 64 64s-25.6 64-64 64H364.8c-19.2 38.4-64 64-108.8 64-70.4 0-128-57.6-128-128s57.6-128 128-128c44.8 0 89.6 25.6 108.8 64H832zM576 128c44.8 0 89.6 25.6 108.8 64H832c38.4 0 64 25.6 64 64s-25.6 64-64 64h-147.2c-19.2 38.4-64 64-108.8 64s-89.6-25.6-108.8-64H192c-38.4 0-64-25.6-64-64s25.6-64 64-64h275.2c19.2-38.4 64-64 108.8-64zM448 448h384c38.4 0 64 25.6 64 64s-25.6 64-64 64H448c-38.4 0-64-25.6-64-64s25.6-64 64-64zM192 448h64c38.4 0 64 25.6 64 64s-25.6 64-64 64H192c-38.4 0-64-25.6-64-64s25.6-64 64-64z m384-128c38.4 0 64-25.6 64-64s-25.6-64-64-64-64 25.6-64 64 25.6 64 64 64z m-320 512c38.4 0 64-25.6 64-64s-25.6-64-64-64-64 25.6-64 64 25.6 64 64 64z" fill="currentColor"/>
+          </svg>
+          <span>常量</span>
+          <span class="nav-count" id="countConstants">0</span>
+        </button>
+      </nav>
+      <nav class="sidebar-nav sidebar-nav-bottom" id="sidebarNavBottom">
+        <button class="nav-item" data-page="settings">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M13.3 10a1.1 1.1 0 00.2 1.2l.04.04a1.34 1.34 0 01-1.9 1.9l-.04-.04a1.1 1.1 0 00-1.2-.2 1.1 1.1 0 00-.67 1.01v.11a1.34 1.34 0 01-2.68 0v-.06a1.1 1.1 0 00-.72-1.01 1.1 1.1 0 00-1.2.2l-.04.04a1.34 1.34 0 01-1.9-1.9l.04-.04a1.1 1.1 0 00.2-1.2 1.1 1.1 0 00-1.01-.67h-.11a1.34 1.34 0 010-2.68h.06a1.1 1.1 0 001.01-.72 1.1 1.1 0 00-.2-1.2l-.04-.04a1.34 1.34 0 011.9-1.9l.04.04a1.1 1.1 0 001.2.2h.05a1.1 1.1 0 00.67-1.01v-.11a1.34 1.34 0 012.68 0v.06a1.1 1.1 0 00.72 1.01 1.1 1.1 0 001.2-.2l.04-.04a1.34 1.34 0 011.9 1.9l-.04.04a1.1 1.1 0 00-.2 1.2v.05a1.1 1.1 0 001.01.67h.11a1.34 1.34 0 010 2.68h-.06a1.1 1.1 0 00-1.01.72z" stroke="currentColor" stroke-width="1.1"/>
+          </svg>
+          <span>设置</span>
+        </button>
+        <button class="nav-item" data-page="about">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M12 11v4M12 8h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span>关于</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="footer-text" id="appVersion"></span>
+      </div>
+    </aside>
+    <div class="resize-handle" id="sidebarResize" style="display:none"></div>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+      <!-- 标题栏（可拖拽） -->
+      <div class="titlebar">
+        <button class="nav-btn sidebar-compact-toggle" id="sidebarCompactBtn" title="极窄模式" style="display:none;">
+          <svg class="compact-icon-collapse" width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <rect x="1" y="2" width="13" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+            <line x1="5" y1="2" x2="5" y2="14" stroke="currentColor" stroke-width="1.3"/>
+          </svg>
+          <svg class="compact-icon-expand" width="14" height="14" viewBox="0 0 16 16" fill="none" style="display:none;">
+            <rect x="1" y="2" width="13" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+            <line x1="5" y1="2" x2="5" y2="14" stroke="currentColor" stroke-width="1.3"/>
+            <polyline points="7,6 9,8 7,10" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="titlebar-brand" id="titlebarBrand">
+          <img class="titlebar-logo" src="logo.svg" alt="">
+          <span class="titlebar-title">Jade EC查看器</span>
+        </div>
+        <div class="titlebar-nav">
+          <button class="nav-btn" id="navBack" title="后退" disabled>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="nav-btn" id="navForward" title="前进" disabled>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="titlebar-search">
+
+          <div class="search-input-wrap">
+            <span class="search-mode-tag" id="searchModeTag" style="display:none;"><span class="tag-label"></span><span class="tag-close">&times;</span></span>
+            <input type="text" class="search-input" id="searchInput" placeholder="搜索... 输入 / 选择搜索方式" autocomplete="off">
+          </div>
+          <kbd class="search-shortcut" id="searchShortcut">/</kbd>
+          <div class="search-commands" id="searchCommands" style="display:none;">
+            <div class="search-commands-title">搜索指令<span style="opacity:0.45;font-weight:400;margin-left:8px">空格确认</span></div>
+            <div class="search-command-item" data-command="/all ">
+              <span class="cmd-prefix">/all</span>
+              <span class="cmd-desc">搜索所有字段</span>
+            </div>
+            <div class="search-command-item" data-command="/name ">
+              <span class="cmd-prefix">/name</span>
+              <span class="cmd-desc">搜索名称</span>
+            </div>
+            <div class="search-command-item" data-command="/type ">
+              <span class="cmd-prefix">/type</span>
+              <span class="cmd-desc">搜索数据类型/返回类型</span>
+            </div>
+            <div class="search-command-item" data-command="/remark ">
+              <span class="cmd-prefix">/remark</span>
+              <span class="cmd-desc">搜索备注</span>
+            </div>
+            <div class="search-command-item" data-command="/method ">
+              <span class="cmd-prefix">/method</span>
+              <span class="cmd-desc">搜索类中的方法名</span>
+            </div>
+            <div class="search-command-item" data-command="/param ">
+              <span class="cmd-prefix">/param</span>
+              <span class="cmd-desc">搜索参数名</span>
+            </div>
+          </div>
+        </div>
+        <div class="titlebar-right">
+          <button class="titlebar-icon-btn" id="aboutBtn" title="关于">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M8 7v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="8" cy="5" r="0.8" fill="currentColor"/>
+            </svg>
+          </button>
+          <button class="titlebar-icon-btn" id="settingsBtn" title="设置">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M13.3 10a1.1 1.1 0 00.2 1.2l.04.04a1.34 1.34 0 01-1.9 1.9l-.04-.04a1.1 1.1 0 00-1.2-.2 1.1 1.1 0 00-.67 1.01v.11a1.34 1.34 0 01-2.68 0v-.06a1.1 1.1 0 00-.72-1.01 1.1 1.1 0 00-1.2.2l-.04.04a1.34 1.34 0 01-1.9-1.9l.04-.04a1.1 1.1 0 00.2-1.2 1.1 1.1 0 00-1.01-.67h-.11a1.34 1.34 0 010-2.68h.06a1.1 1.1 0 001.01-.72 1.1 1.1 0 00-.2-1.2l-.04-.04a1.34 1.34 0 011.9-1.9l.04.04a1.1 1.1 0 001.2.2h.05a1.1 1.1 0 00.67-1.01v-.11a1.34 1.34 0 012.68 0v.06a1.1 1.1 0 00.72 1.01 1.1 1.1 0 001.2-.2l.04-.04a1.34 1.34 0 011.9 1.9l-.04.04a1.1 1.1 0 00-.2 1.2v.05a1.1 1.1 0 001.01.67h.11a1.34 1.34 0 010 2.68h-.06a1.1 1.1 0 00-1.01.72z" stroke="currentColor" stroke-width="1.1"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 内容区域：列表 + 详情 -->
+      <div class="content-split">
+        <!-- 列表面板 -->
+        <div class="list-panel" id="listPanel" style="display:none">
+          <div class="list-header">
+            <h2 class="list-title" id="listTitle">子程序</h2>
+            <span class="list-count" id="listCount">0 项</span>
+          </div>
+          <div class="list-items" id="listItems">
+            <div class="list-empty">
+              <p>选择分类以查看内容</p>
+            </div>
+          </div>
+        </div>
+        <div class="resize-handle" id="listResize" style="display:none"></div>
+
+        <!-- 详情面板 -->
+        <div class="detail-panel" id="detailPanel">
+          <div class="detail-empty">
+            <svg width="40" height="40" viewBox="0 0 16 16" fill="none" opacity="0.2">
+              <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.5" />
+              <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            <p>选择项目查看详情</p>
+          </div>
+          <div class="detail-content" id="detailContent" style="display:none"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+    <!-- 文件修改提示模态 -->
+    <div class="modal-overlay" id="fileModifiedOverlay"></div>
+    <div class="modal-dialog" id="fileModifiedDialog">
+      <div class="modal-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M12 9v4M12 17h.01M3 12a9 9 0 1 1 18 0 9 9 0 0 1-18 0z" stroke="var(--color-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h3 class="modal-title">文件已被修改</h3>
+      <p class="modal-message" id="fileModifiedMessage">当前打开的模块文件已被外部程序修改。</p>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn--secondary" id="fileModifiedDismiss">忽略</button>
+        <button class="modal-btn modal-btn--primary" id="fileModifiedReload">重新加载</button>
+      </div>
+    </div>
+
+    <!-- 通用提示模态 -->
+    <div class="modal-overlay" id="alertOverlay"></div>
+    <div class="modal-dialog" id="alertDialog">
+      <div class="modal-icon" id="alertIcon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M12 9v4M12 17h.01M3 12a9 9 0 1 1 18 0 9 9 0 0 1-18 0z" stroke="var(--color-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h3 class="modal-title" id="alertTitle">提示</h3>
+      <p class="modal-message" id="alertMessage"></p>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn--primary" id="alertOk">确定</button>
+      </div>
+    </div>
+
+    <script defer src="tooltip.js"></script>
+    <script defer src="drag-drop.js"></script>
+    <script defer src="code-copy.js"></script>
+    <script defer src="app.js"></script>
+  </body>
+
+</html>

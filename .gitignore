@@ -1,0 +1,15 @@
+# EC files
+*.ec
+
+# Backup files
+*.bak
+
+# Hidden files and directories
+.*
+!**/.gitignore
+
+# Build output
+build/
+
+# Rust build output
+rust/target/
