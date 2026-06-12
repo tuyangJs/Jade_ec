@@ -3,6 +3,8 @@
 易语言 `.ec` 模块文件现代化查看器，支持浏览子程序、DLL 命令、类、自定义数据类型、全局变量和常量。
 
 ## 项目结构
+> jadeview 模块请前往 [JadeView](https://jade.run/sdks) 下载
+> zyJson 模块，在精易论坛搜索下载
 
 ```
 Jade_ec/
