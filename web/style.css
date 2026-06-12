@@ -1092,7 +1092,7 @@ body.material-acrylic .titlebar {
 
 @media (prefers-color-scheme: dark) {
   .detail-panel {
-    background: rgba(28, 28, 28, var(--detail-bg-opacity, 1));
+    background: rgba(22, 22, 22, var(--detail-bg-opacity, 1));
   }
 }
 

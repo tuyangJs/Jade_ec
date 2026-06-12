@@ -9,9 +9,9 @@
   },
   "nsis": {
     "appDir": "D:\\nodejsApp\\Jade_ec\\dist",
-    "mainExe": "",
+    "mainExe": "Jade_ec.exe",
     "appName": "Jade EC查看器",
-    "appVersion": "1.1.0.0",
+    "appVersion": "1.1.1.0",
     "versionMode": "follow",
     "appId": "jade_ec.jade.run",
     "iconPath": "",
@@ -36,5 +36,5 @@
       }
     ]
   },
-  "updatedAt": "2026-06-12T13:11:24.682Z"
+  "updatedAt": "2026-06-12T13:35:25.256Z"
 }
