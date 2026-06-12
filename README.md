@@ -55,6 +55,8 @@ Jade_ec/
 > 支持 深色、浅色 或跟随系统主题
 <img width="1083" height="709" alt="QQ20260612-213337" src="https://github.com/user-attachments/assets/4647f635-d403-489c-8d1d-11600879b97d" />
 
+#### 窄侧边栏：
+<img width="1086" height="705" alt="QQ20260612-213631" src="https://github.com/user-attachments/assets/362f3ed5-98e1-4f19-88ff-dd28aa6db825" />
 
 
 ## 功能
