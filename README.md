@@ -72,10 +72,5 @@ cargo build --release
 
 ### 打包
 
-使用 [JadePack]('https://jade.run/v2api/jadepack') 进行打包，配置见 `jadepack.config.json`。
-
-## 技术栈
-
-- **前端**：HTML / CSS / JavaScript（原生，无框架）
-- **打包**：Jadepack + NSIS 安装程序
+使用 [JadePack]('https://jade.run/v2api/jadepack') 进行打包，配置见 `jadepack.config.json`。&#x20;
 
