@@ -380,13 +380,16 @@
 
   // --- Safe JSON Parse ---
   function safeJsonParse(str) {
-    try { return JSON.parse(str); } catch (e) {}
+    if (typeof str !== 'string') return str;
+    var trimmed = str.trim();
+    if (!trimmed) return [];
+    try { return JSON.parse(trimmed); } catch (e) {}
 
     // 截断修复：数据被广播缓冲区截断时，找到最后一个完整对象
-    var lastObj = str.lastIndexOf('},');
-    if (lastObj === -1) lastObj = str.lastIndexOf('}');
+    var lastObj = trimmed.lastIndexOf('},');
+    if (lastObj === -1) lastObj = trimmed.lastIndexOf('}');
     if (lastObj > 0) {
-      var partial = str.substring(0, lastObj + 1) + ']';
+      var partial = trimmed.substring(0, lastObj + 1) + ']';
       try {
         var result = JSON.parse(partial);
         console.warn('JSON 截断修复: 原始 ' + str.length + ' 字符, 修复后取 ' + result.length + ' 项');
@@ -516,8 +519,31 @@
     });
   }
 
-  function openModuleByPath(filePath) {
-    if (state.loading) return;
+  function tryParseJson(str) {
+    try { return JSON.parse(str); } catch (e) { return null; }
+  }
+
+  function needsPassword(info) {
+    if (!info) return false;
+    if (info.needPassword === true || info.needPassword === 'true') return true;
+    if (info.error === 'need_password' || info.error === 'password_required') return true;
+    if (info.passwordRequired === true || info.passwordRequired === 'true') return true;
+    return false;
+  }
+
+  function parseModuleResponse(value) {
+    if (typeof value !== 'string') return value;
+    return tryParseJson(value) || {};
+  }
+
+  function parseModuleError(err) {
+    if (typeof err === 'string') return tryParseJson(err);
+    if (!err || typeof err !== 'object') return null;
+    if (typeof err.message === 'string') return tryParseJson(err.message) || err;
+    return err;
+  }
+
+  function startModuleLoading(filePath) {
     state.loading = true;
     resetState();
     moduleName.textContent = '加载中...';
@@ -526,31 +552,79 @@
     showLoadingOverlay();
     renderList();
     renderDetail(null);
+  }
 
-    invoke('open_module', filePath).then(function (result) {
-      var info = result;
-      if (typeof result === 'string') {
-        try { info = JSON.parse(result); } catch (e) { info = {}; }
-      }
-      if (!info || !info.name) {
-        moduleName.textContent = '打开失败';
-        removeRecentModule(filePath);
+  function applyModuleResult(info, filePath) {
+    if (!info || !info.name) {
+      moduleName.textContent = '打开失败';
+      removeRecentModule(filePath);
+      renderWelcome();
+      state.loading = false;
+      hideLoadingOverlay();
+      return false;
+    }
+    state.moduleInfo = info;
+    state.moduleInfo.path = filePath;
+    addRecentModule(filePath, info.name);
+    showModuleUI(true);
+    renderModuleInfo();
+    renderDetail(null);
+    return true;
+  }
+
+  function requestModulePassword(filePath, info) {
+    state.loading = false;
+    hideLoadingOverlay();
+
+    return showPasswordDialog(info.message || '此模块已加密，请输入密码以打开。', filePath).then(function (result) {
+      if (result === null) {
+        moduleName.textContent = '';
+        moduleVersion.textContent = '';
+        moduleAuthor.textContent = '';
         renderWelcome();
-        state.loading = false;
-        hideLoadingOverlay();
         return;
       }
-      state.moduleInfo = info;
-      state.moduleInfo.path = filePath;
-      addRecentModule(filePath, info.name);
-      showModuleUI(true);
-      renderModuleInfo();
-      renderDetail(null);
+      return openModuleByPath(filePath, result.password, result.remember);
+    });
+  }
+
+  function openModuleByPath(filePath, password, remember) {
+    if (state.loading) return Promise.resolve();
+    startModuleLoading(filePath);
+
+    var payload = JSON.stringify({
+      path: filePath,
+      password: password || '',
+      remember_password: remember || false
+    });
+
+    console.log('[open_module] 发起请求:', {
+      path: filePath,
+      hasPassword: Boolean(password)
+    });
+
+    return invoke('open_module', payload).then(function (result) {
+      console.log('[open_module] 后端原始返回:', result);
+      var info = parseModuleResponse(result);
+      console.log('[open_module] 解析后数据:', info);
+
+      if (needsPassword(info)) {
+        return requestModulePassword(filePath, info);
+      }
+
+      if (!applyModuleResult(info, filePath)) return;
       // loading 不在此处结束，等所有分类通知到齐后 checkAllLoaded 结束
     }).catch(function (err) {
+      console.error('[open_module] 后端返回错误:', err);
+      var errInfo = parseModuleError(err);
+      console.log('[open_module] 解析后错误数据:', errInfo);
+      if (needsPassword(errInfo)) {
+        return requestModulePassword(filePath, errInfo);
+      }
+
       console.error('加载模块失败:', err);
       moduleName.textContent = '加载失败';
-      moduleVersion.textContent = err.message || '';
+      moduleVersion.textContent = (err && err.message) || String(err) || '';
       removeRecentModule(filePath);
       renderWelcome();
       state.loading = false;
@@ -572,40 +646,7 @@
       ]
     }).then(function (result) {
       if (result.canceled || !result.filePaths || result.filePaths.length === 0) return;
-      var filePath = result.filePaths[0];
-      state.loading = true;
-      resetState();
-      moduleName.textContent = '加载中...';
-      moduleVersion.textContent = '';
-      moduleAuthor.textContent = '';
-      showLoadingOverlay();
-      renderList();
-      renderDetail(null);
-      invoke('open_module', filePath).then(function (result) {
-        var info = result;
-        if (typeof result === 'string') {
-          try { info = JSON.parse(result); } catch (e) { info = {}; }
-        }
-        if (!info || !info.name) {
-          moduleName.textContent = '打开失败';
-          state.loading = false;
-          hideLoadingOverlay();
-          return;
-        }
-        state.moduleInfo = info;
-      state.moduleInfo.path = filePath;
-        addRecentModule(filePath, info.name);
-        showModuleUI(true);
-        renderModuleInfo();
-        renderDetail(null);
-        // loading 不在此处结束，等所有分类通知到齐后 checkAllLoaded 结束
-      }).catch(function (err) {
-        console.error('加载模块失败:', err);
-        moduleName.textContent = '加载失败';
-        moduleVersion.textContent = err.message || '';
-        state.loading = false;
-        hideLoadingOverlay();
-      });
+      openModuleByPath(result.filePaths[0]);
     });
   }
 
@@ -658,7 +699,7 @@
       html += '<div class="detail-section">' +
         '<div class="detail-section-title">支持库 (' + libs.length + ')</div>' +
         '<table class="detail-table"><colgroup>' +
-        '<col style="width:auto"><col style="width:90px"><col style="width:40%"><col style="width:60px">' +
+        '<col><col><col style="width:40%"><col style="width:60px">' +
         '</colgroup><thead><tr>' +
         '<th>中文名</th><th>文件名</th><th>标识符</th><th>版本</th>' +
         '</tr></thead><tbody>';
@@ -1321,12 +1362,12 @@
     var hasByRef = params.some(function (p) { return p.byRef !== undefined; });
     byRefLabel = byRefLabel || '参考';
 
-    // colgroup: 名称25% 类型17% [参考46px] [可空46px] [数组46px] 备注=剩余
-    var colgroup = '<colgroup><col style="width:25%"><col style="width:17%">' +
+    // colgroup: 名称auto 类型auto [参考46px] [可空46px] [数组46px] 备注=100%
+    var colgroup = '<colgroup><col><col>' +
       (hasByRef ? '<col style="width:46px">' : '') +
       (hasNullable ? '<col style="width:46px">' : '') +
       (hasIsArray ? '<col style="width:46px">' : '') +
-      '<col></colgroup>';
+      '<col style="width:100%"></colgroup>';
 
     var remarkColspan = 1 + (hasByRef ? 1 : 0) + (hasNullable ? 1 : 0) + (hasIsArray ? 1 : 0);
 
@@ -1341,11 +1382,11 @@
       '<td colspan="' + remarkColspan + '">' + escapeHtml(String(remark || '')) + '</td></tr>';
 
     if (params.length > 0) {
-      var paramColgroup = '<colgroup><col style="width:25%"><col style="width:17%">' +
+      var paramColgroup = '<colgroup><col><col>' +
         (hasByRef ? '<col style="width:40px">' : '') +
         (hasNullable ? '<col style="width:40px">' : '') +
         (hasIsArray ? '<col style="width:40px">' : '') +
-        '<col></colgroup>';
+        '<col style="width:100%"></colgroup>';
 
       html += '<tr class="sub-header-row"><th>参数名</th><th>类型</th>' +
         (hasByRef ? '<th>' + escapeHtml(byRefLabel) + '</th>' : '') +
@@ -1447,7 +1488,7 @@
 
   function renderGlobalVarDetail(item) {
     var html = '<div class="detail-section">' +
-      '<table class="detail-table"><colgroup><col style="width:25%"><col style="width:15%"><col style="width:40px"><col></colgroup>' +
+      '<table class="detail-table"><colgroup><col><col><col style="width:40px"><col style="width:100%"></colgroup>' +
       '<thead><tr><th>变量名</th><th>类型</th><th>数组</th><th>备注</th></tr></thead><tbody>';
 
     var arrayVal = item.isArray ? String(item.isArray) : '0';
@@ -1524,12 +1565,12 @@
     var hasByRef = forceAll || params.some(function (p) { return p.byRef !== undefined; });
     var byRefLabel = isDll ? '传址' : '参考';
 
-    var colgroup = '<colgroup><col style="width:25%"><col style="width:15%">' +
+    var colgroup = '<colgroup><col><col>' +
       (hasIsArray ? '<col style="width:46px">' : '') +
       (hasArrayBounds ? '<col style="width:46px">' : '') +
       (hasNullable ? '<col style="width:46px">' : '') +
       (hasByRef ? '<col style="width:46px">' : '') +
-      '<col></colgroup>';
+      '<col style="width:100%"></colgroup>';
 
     var html = '<table class="detail-table">' + colgroup + '<thead><tr>' +
       '<th>名称</th><th>数据类型</th>' +
@@ -2574,6 +2615,93 @@
       if (state.moduleInfo && state.moduleInfo.path) {
         openModuleByPath(state.moduleInfo.path);
       }
+    });
+  }
+
+  function showPasswordDialog(message, filePath) {
+    return new Promise(function (resolve) {
+      var overlay = document.getElementById('passwordOverlay');
+      var dialog = document.getElementById('passwordDialog');
+      var input = document.getElementById('passwordInput');
+      var errorEl = document.getElementById('passwordError');
+      var msgEl = document.getElementById('passwordMessage');
+      var toggleBtn = document.getElementById('passwordToggle');
+      var cancelBtn = document.getElementById('passwordCancel');
+      var confirmBtn = document.getElementById('passwordConfirm');
+      var rememberCb = document.getElementById('passwordRemember');
+      var eyeOpen = toggleBtn.querySelector('.password-eye-open');
+      var eyeClosed = toggleBtn.querySelector('.password-eye-closed');
+
+      if (message && msgEl) msgEl.textContent = message;
+      input.value = '';
+      input.type = 'password';
+      errorEl.style.display = 'none';
+      rememberCb.checked = false;
+      eyeOpen.style.display = '';
+      eyeClosed.style.display = 'none';
+
+      overlay.classList.add('active');
+      dialog.classList.add('active');
+
+      setTimeout(function () { input.focus(); }, 100);
+
+      function close(result) {
+        overlay.classList.remove('active');
+        dialog.classList.remove('active');
+        input.removeEventListener('keydown', onKeydown);
+        toggleBtn.removeEventListener('click', onToggle);
+        cancelBtn.removeEventListener('click', onCancel);
+        confirmBtn.removeEventListener('click', onConfirm);
+        overlay.removeEventListener('click', onOverlayClick);
+        resolve(result);
+      }
+
+      function showError(msg) {
+        errorEl.textContent = msg || '密码错误，请重新输入。';
+        errorEl.style.display = '';
+        input.select();
+        input.focus();
+      }
+
+      function onConfirm() {
+        var val = input.value;
+        if (!val) {
+          showError('请输入密码。');
+          return;
+        }
+        close({ password: val, remember: rememberCb.checked });
+      }
+
+      function onCancel() {
+        close(null);
+      }
+
+      function onKeydown(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          onConfirm();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          onCancel();
+        }
+      }
+
+      function onToggle() {
+        var isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+        eyeOpen.style.display = isPassword ? 'none' : '';
+        eyeClosed.style.display = isPassword ? '' : 'none';
+      }
+
+      function onOverlayClick(e) {
+        if (e.target === overlay) onCancel();
+      }
+
+      input.addEventListener('keydown', onKeydown);
+      toggleBtn.addEventListener('click', onToggle);
+      cancelBtn.addEventListener('click', onCancel);
+      confirmBtn.addEventListener('click', onConfirm);
+      overlay.addEventListener('click', onOverlayClick);
     });
   }
 

@@ -698,21 +698,24 @@ body.material-acrylic .titlebar {
 .list-items::-webkit-scrollbar,
 .detail-content::-webkit-scrollbar,
 .sidebar-nav::-webkit-scrollbar,
-.detail-empty::-webkit-scrollbar {
+.detail-empty::-webkit-scrollbar,
+.welcome-recent::-webkit-scrollbar {
   width: 6px;
 }
 
 .list-items::-webkit-scrollbar-track,
 .detail-content::-webkit-scrollbar-track,
 .sidebar-nav::-webkit-scrollbar-track,
-.detail-empty::-webkit-scrollbar-track {
+.detail-empty::-webkit-scrollbar-track,
+.welcome-recent::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .list-items::-webkit-scrollbar-thumb,
 .detail-content::-webkit-scrollbar-thumb,
 .sidebar-nav::-webkit-scrollbar-thumb,
-.detail-empty::-webkit-scrollbar-thumb {
+.detail-empty::-webkit-scrollbar-thumb,
+.welcome-recent::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.12);
   border-radius: 3px;
 }
@@ -722,7 +725,8 @@ body.material-acrylic .titlebar {
   .list-items::-webkit-scrollbar-thumb,
   .detail-content::-webkit-scrollbar-thumb,
   .sidebar-nav::-webkit-scrollbar-thumb,
-  .detail-empty::-webkit-scrollbar-thumb {
+  .detail-empty::-webkit-scrollbar-thumb,
+  .welcome-recent::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.12);
   }
 }
@@ -1007,6 +1011,8 @@ body.material-acrylic .titlebar {
 .welcome-recent {
   width: 100%;
   max-width: 400px;
+  max-height: 300px;
+  overflow-y: auto;
 }
 .welcome-recent-title {
   font-size: 11px;
@@ -1276,7 +1282,7 @@ body.material-acrylic .titlebar {
   width: 100%;
   border-collapse: collapse;
   background: #FFFFFF;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -1325,9 +1331,14 @@ body.material-acrylic .titlebar {
   font-weight: 500;
   color: var(--text-primary);
   font-size: inherit;
+  white-space: nowrap;
 }
 
-.detail-table .param-type { color: var(--color-primary); font-size: inherit; }
+.detail-table .param-type {
+  color: var(--color-primary);
+  font-size: inherit;
+  white-space: nowrap;
+}
 .type-link { color: var(--color-primary); cursor: pointer; text-decoration: none; border-bottom: 1px dashed var(--color-primary); }
 .type-link:hover { border-bottom-style: solid; }
 .type-hint { color: var(--color-primary); cursor: help; border-bottom: 1px dotted var(--color-primary); opacity: 0.85; }
@@ -1546,6 +1557,227 @@ body.hide-type-underline .type-hint {
 }
 .modal-btn--primary:hover {
   background: var(--color-primary-hover);
+}
+
+/* Password Dialog */
+.password-overlay {
+  top: 42px;
+  background: rgba(8, 12, 20, 0.62);
+  backdrop-filter: blur(10px) saturate(80%);
+  -webkit-backdrop-filter: blur(10px) saturate(80%);
+}
+
+.password-dialog {
+  top: calc(50% + 21px);
+  width: min(440px, calc(100vw - 40px));
+  min-width: 0;
+  max-width: 440px;
+  padding: 22px;
+  text-align: left;
+  background: color-mix(in srgb, var(--surface-base) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--border-color));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34), 0 2px 12px rgba(0, 0, 0, 0.18);
+}
+
+.password-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.password-dialog-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin: 0;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.password-dialog .modal-title {
+  margin: 0 0 2px;
+  font-size: 16px;
+}
+
+.password-dialog-subtitle {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.password-message-box {
+  position: relative;
+  margin-bottom: 16px;
+  padding: 20px 14px 13px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--border-color));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--surface-base));
+  overflow: hidden;
+}
+
+
+
+.password-message-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 3px 9px;
+  border-radius: 9px 0 8px 0;
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  color: var(--color-primary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.password-message-box .modal-message {
+  position: relative;
+  max-height: 116px;
+  margin: 0;
+  padding-right: 8px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  text-align: left;
+  user-select: text;
+  -webkit-user-select: text;
+  overflow-wrap: anywhere;
+}
+
+.password-field-label {
+  display: block;
+  margin: 0 0 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.password-input-wrap {
+  position: relative;
+  margin: 0 0 8px;
+}
+.password-input {
+  width: 100%;
+  height: 40px;
+  padding: 8px 42px 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface-base) 82%, var(--surface-secondary));
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  box-sizing: border-box;
+}
+.password-input:focus {
+  border-color: var(--color-primary);
+  background: var(--surface-base);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+.password-input::placeholder {
+  color: var(--text-tertiary);
+}
+.password-toggle {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+}
+.password-toggle:hover {
+  color: var(--text-secondary);
+}
+.password-error {
+  font-size: 12px;
+  color: #FF3B30;
+  margin: 0 0 12px;
+  text-align: left;
+}
+
+.password-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  margin: 4px 0 0;
+  position: relative;
+}
+
+.password-remember input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.password-remember .checkbox-mark {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: var(--transition-fast);
+  background: transparent;
+}
+
+.password-remember input[type="checkbox"]:checked + .checkbox-mark {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.password-remember input[type="checkbox"]:checked + .checkbox-mark svg {
+  opacity: 1;
+}
+
+.password-remember .checkbox-mark svg {
+  width: 10px;
+  height: 10px;
+  opacity: 0;
+  transition: var(--transition-fast);
+}
+
+.password-remember:hover .checkbox-mark {
+  border-color: var(--color-primary);
+}
+
+.password-remember span {
+  line-height: 1;
+}
+
+.password-dialog .modal-actions {
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.password-dialog .modal-btn {
+  min-width: 88px;
+  min-height: 34px;
+}
+
+.password-dialog .modal-btn--primary {
+  min-width: 112px;
+}
+.password-error:empty,
+.password-error[style*="display:none"] {
+  margin: 0;
 }
 
 /* --- Settings Page --- */
@@ -2237,5 +2469,4 @@ body.hide-type-underline .type-hint {
   background: var(--surface-hover);
   color: var(--text-primary);
 }
-
 

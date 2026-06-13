@@ -2,11 +2,10 @@
 
 use std::mem::MaybeUninit;
 use std::os::windows::ffi::OsStringExt;
-use std::os::windows::process::CommandExt;
-use std::process::Command;
 use std::ptr;
 use windows_sys::Win32::Foundation::*;
 use windows_sys::Win32::System::Registry::*;
+use windows_sys::Win32::System::Threading::*;
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
@@ -16,10 +15,7 @@ fn main() {
         Err(_) => return,
     };
 
-    let exe_path = std::path::Path::new(&install_path).join("Jade_ec.exe");
-    if !exe_path.exists() {
-        return;
-    }
+    let exe_path = format!("{}\\Jade_ec.exe", &install_path);
 
     let args: Vec<String> = std::env::args()
         .skip(1)
@@ -29,10 +25,40 @@ fn main() {
         return;
     }
 
-    let _ = Command::new(&exe_path)
-        .args(&args)
-        .creation_flags(CREATE_NO_WINDOW)
-        .spawn();
+    let mut cmd_line = format!("\"{}\"", exe_path);
+    for arg in &args {
+        cmd_line.push(' ');
+        cmd_line.push('"');
+        cmd_line.push_str(arg);
+        cmd_line.push('"');
+    }
+
+    let mut cmd_line_wide: Vec<u16> = cmd_line
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect();
+
+    unsafe {
+        let mut si: MaybeUninit<STARTUPINFOW> = MaybeUninit::zeroed();
+        (*si.as_mut_ptr()).cb = std::mem::size_of::<STARTUPINFOW>() as u32;
+        let mut pi: MaybeUninit<PROCESS_INFORMATION> = MaybeUninit::zeroed();
+
+        CreateProcessW(
+            ptr::null(),
+            cmd_line_wide.as_mut_ptr(),
+            ptr::null(),
+            ptr::null(),
+            0,
+            CREATE_NO_WINDOW,
+            ptr::null(),
+            ptr::null(),
+            si.as_ptr(),
+            pi.as_mut_ptr(),
+        );
+
+        CloseHandle((*pi.as_ptr()).hProcess);
+        CloseHandle((*pi.as_ptr()).hThread);
+    }
 }
 
 fn read_registry_install_path() -> Result<String, ()> {
