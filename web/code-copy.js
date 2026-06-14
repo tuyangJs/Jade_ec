@@ -39,19 +39,28 @@
 
   // --- 易语言代码生成器 ---
 
-  function formatEParam(p) {
+  function formatEParam(p, byRefLabel) {
+    byRefLabel = byRefLabel || '参考';
     var parts = ['.参数 ' + (p.name || '')];
     parts.push(p.dataType || '');
-    if (p.nullable) {
-      parts.push('可空');
-      parts.push(p.remark || '');
-    } else {
-      if (p.remark) {
-        parts.push('');
-        parts.push(p.remark);
-      }
-    }
+    var col3 = [];
+    if (p.byRef) col3.push(byRefLabel);
+    if (p.nullable) col3.push('可空');
+    if (p.isArray) col3.push('数组');
+    parts.push(col3.join(' ') || '');
+    parts.push(p.remark || '');
     return parts.join(', ');
+  }
+
+  function formatMethodDecl(m) {
+    var name = m.name || '';
+    var returnType = m.returnType || '';
+    var remark = m.remark || '';
+    var params = m.params || [];
+    var header = '.子程序 ' + name + ', ' + returnType + ', , ' + remark;
+    if (params.length === 0) return '.版本 2\n\n' + header;
+    var paramStr = params.map(function (p) { return formatEParam(p, '参考'); }).join('\n');
+    return '.版本 2\n\n' + header + '\n' + paramStr;
   }
 
   var eGenerator = {
@@ -103,13 +112,13 @@
     subroutines_params: function (item) {
       var params = item.params || [];
       if (params.length === 0) return '';
-      return '.版本 2\n\n' + params.map(formatEParam).join('\n');
+      return '.版本 2\n\n' + params.map(function (p) { return formatEParam(p, '参考'); }).join('\n');
     },
 
     dllCommands_params: function (item) {
       var params = item.params || [];
       if (params.length === 0) return '';
-      return '.版本 2\n\n' + params.map(formatEParam).join('\n');
+      return '.版本 2\n\n' + params.map(function (p) { return formatEParam(p, '传址'); }).join('\n');
     },
 
     classes_params: function (item, methodName) {
@@ -117,14 +126,14 @@
         var method = (item.methods || []).find(function (m) { return m.name === methodName; });
         var params = method ? (method.params || []) : [];
         if (params.length === 0) return '';
-        return '.版本 2\n\n' + params.map(formatEParam).join('\n');
+        return '.版本 2\n\n' + params.map(function (p) { return formatEParam(p, '参考'); }).join('\n');
       }
       var methods = item.methods || [];
       var parts = [];
       methods.forEach(function (m) {
         var params = m.params || [];
         if (params.length > 0) {
-          parts.push('.版本 2\n\n' + params.map(formatEParam).join('\n'));
+          parts.push('.版本 2\n\n' + params.map(function (p) { return formatEParam(p, '参考'); }).join('\n'));
         }
       });
       return parts.join('\n\n');
@@ -158,7 +167,18 @@
       return '.版本 2\n\n.参数 ' + name + ', ' + name;
     },
 
-    // --- 声明代码 ---
+    // --- 声明代码 / 签名 ---
+    subroutines_decl: function (item) {
+      var name = item.name || '';
+      var returnType = item.returnType || '';
+      var remark = item.remark || '';
+      var params = item.params || [];
+      var header = '.子程序 ' + name + ', ' + returnType + ', , ' + remark;
+      if (params.length === 0) return '.版本 2\n\n' + header;
+      var paramStr = params.map(function (p) { return formatEParam(p, '参考'); }).join('\n');
+      return '.版本 2\n\n' + header + '\n' + paramStr;
+    },
+
     dllCommands_decl: function (item) {
       var name = item.name || '';
       var returnType = item.returnType || '整数型';
@@ -168,31 +188,19 @@
       var header = '.DLL命令 ' + name + ', ' + returnType + ', "' + fileName + '", "' + cmdName + '", 公开';
       if (params.length === 0) return '.版本 2\n\n' + header;
       var paramStr = params.map(function (p) {
-        var parts = ['    .参数 ' + (p.name || '')];
-        parts.push(p.dataType || '');
-        parts.push(p.byRef ? '传址' : '');
-        parts.push('');
-        return parts.join(', ');
+        return '    ' + formatEParam(p, '传址');
       }).join('\n');
       return '.版本 2\n\n' + header + ', \n' + paramStr;
     },
 
-    classes_decl: function (item) {
-      var name = item.name || '';
-      var remark = item.remark || '';
-      var members = item.members || [];
-      var header = '.数据类型 ' + name + ', 公开';
-      if (remark) header += ', ' + remark;
-      if (members.length === 0) return '.版本 2\n\n' + header;
-      var memberStr = members.map(function (m) {
-        var parts = ['    .成员 ' + (m.name || '')];
-        parts.push(m.dataType || '');
-        parts.push('');
-        parts.push('"' + (m.remark || '') + '"');
-        parts.push('');
-        return parts.join(', ');
-      }).join('\n');
-      return '.版本 2\n\n' + header + '\n' + memberStr;
+    classes_decl: function (item, methodName) {
+      var methods = item.methods || [];
+      if (methodName) {
+        var method = methods.find(function (m) { return m.name === methodName; });
+        if (!method) return '';
+        return formatMethodDecl(method);
+      }
+      return methods.map(formatMethodDecl).join('\n\n');
     },
 
     dataTypes_decl: function (item) {

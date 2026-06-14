@@ -11,7 +11,7 @@
     "appDir": "D:\\nodejsApp\\Jade_ec\\dist",
     "mainExe": "Jade_ec.exe",
     "appName": "Jade EC查看器",
-    "appVersion": "1.1.1.0",
+    "appVersion": "1.2.1.0",
     "versionMode": "follow",
     "appId": "jade_ec.jade.run",
     "iconPath": "",
@@ -36,5 +36,5 @@
       }
     ]
   },
-  "updatedAt": "2026-06-12T14:38:52.556Z"
+  "updatedAt": "2026-06-14T13:28:44.895Z"
 }

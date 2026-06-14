@@ -26,7 +26,8 @@
     backgroundMaterial: 'default',
     detailOpacity: 100,
     showTypeUnderline: true,
-    showTypeTooltip: true
+    showTypeTooltip: true,
+    showListDivider: false
   };
 
   var isWindows11 = false;
@@ -842,17 +843,20 @@
       return;
     }
 
-    // 虚拟列表渲染：超过阈值时启用虚拟滚动
+    // 虚拟列表渲染：超过阈值时启用虚拟滚动（类分类始终使用树形列表）
     var VIRTUAL_THRESHOLD = 50;
+    var useClassTree = state.activeCategory === 'classes';
     // 切换到非虚拟列表时，移除旧的 scroll 监听器
-    if (items.length <= VIRTUAL_THRESHOLD || state.activeCategory === 'search') {
+    if (items.length <= VIRTUAL_THRESHOLD || state.activeCategory === 'search' || useClassTree) {
       if (listItems._virtualScrollHandler) {
         listItems.removeEventListener('scroll', listItems._virtualScrollHandler);
         listItems._virtualScrollHandler = null;
       }
       currentPositions = null;
     }
-    if (items.length > VIRTUAL_THRESHOLD) {
+    if (useClassTree) {
+      renderClassTreeList(items);
+    } else if (items.length > VIRTUAL_THRESHOLD) {
       renderVirtualList(items, config);
     } else {
       listItems.innerHTML = items.map(function (item, index) {
@@ -867,6 +871,36 @@
           '</div></div>';
       }).join('');
     }
+  }
+
+  function renderClassTreeList(items) {
+    var html = '';
+    items.forEach(function (item, index) {
+      var isActive = state.activeItem === index;
+      var methods = item.methods || [];
+      html += '<div class="tree-group' + (isActive ? ' tree-group--active' : '') + '">';
+      html += '<div class="tree-parent list-item' + (isActive ? ' active' : '') + '" data-index="' + index + '">' +
+        '<svg class="tree-arrow' + (isActive ? ' tree-arrow--open' : '') + '" width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        '<div class="item-info">' +
+        '<div class="item-name">' + escapeHtml(item.name || '') + '</div>' +
+        (appSettings.showRemark && item.remark ? '<div class="item-sub">' + escapeHtml(item.remark) + '</div>' : '') +
+        '</div>' +
+        '<span class="nav-count">' + methods.length + '</span>' +
+        '</div>';
+      html += '<div class="tree-children"' + (isActive ? '' : ' style="display:none"') + '>';
+      methods.forEach(function (m, mi) {
+        html += '<div class="tree-child" data-class-index="' + index + '" data-method-index="' + mi + '" data-method-name="' + escapeHtml(String(m.name || '')) + '">' +
+          '<div class="item-info">' +
+          '<div class="item-name">' + escapeHtml(String(m.name || '')) + '</div>' +
+          (m.returnType ? '<span class="item-type">' + escapeHtml(String(m.returnType)) + '</span>' : '') +
+          '</div></div>';
+      });
+      if (methods.length === 0) {
+        html += '<div class="tree-child tree-child--empty"><div class="item-info"><div class="item-name" style="color:var(--text-tertiary)">无方法</div></div></div>';
+      }
+      html += '</div></div>';
+    });
+    listItems.innerHTML = html;
   }
 
   // --- Virtual List ---
@@ -944,7 +978,7 @@
           var isActive = state.activeItem === i;
           var h = getItemHeight(item);
 
-          html += '<div class="list-item' + (isActive ? ' active' : '') + '" data-index="' + i + '" style="height:' + h + 'px">' +
+          html += '<div class="list-item' + (isActive ? ' active' : '') + '" data-index="' + i + '">' +
             '<div class="item-info">' +
             '<div class="item-name">' + escapeHtml(name) + '</div>' +
             (appSettings.showRemark && desc ? '<div class="item-sub">' + escapeHtml(desc) + '</div>' : '') +
@@ -968,8 +1002,24 @@
     detailContent.style.display = 'none';
     detailEmpty.style.display = '';
     var html = '<div class="about-page">' +
-      '<div class="about-cards">' +
-      '<div class="about-card">' +
+      '<div class="about-row">' +
+      '<div class="about-card about-card--contributors">' +
+      '<div class="about-contributors">' +
+      '<div class="about-contributors-title">贡献者</div>' +
+      '<div class="about-contributors-list">' +
+      '<div class="about-contributor">' +
+      '<img class="about-contributor-avatar" src="https://q1.qlogo.cn/g?b=qq&nk=1139040533&s=640" alt="面包" loading="lazy">' +
+      '<div class="about-contributor-info"><div class="about-contributor-name">面包</div><div class="about-contributor-desc">提取解析模块源码的能力</div><div class="about-contributor-qq">QQ：<a href="http://wpa.qq.com/msgrd?v=3&uin=1139040533&site=qq&menu=yes" target="_blank" rel="noopener">1139040533</a></div></div>' +
+      '</div>' +
+      '<div class="about-contributor">' +
+      '<img class="about-contributor-avatar" src="https://q1.qlogo.cn/g?b=qq&nk=350373380&s=640" alt="落雪有声" loading="lazy">' +
+      '<div class="about-contributor-info"><div class="about-contributor-name">落雪有声</div><div class="about-contributor-desc">解析加密模块的能力</div><div class="about-contributor-qq">QQ：<a href="http://wpa.qq.com/msgrd?v=3&uin=350373380&site=qq&menu=yes" target="_blank" rel="noopener">350373380</a></div></div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="about-copyright">&copy; ' + new Date().getFullYear() + ' 所有贡献者 &mdash; 版权所有，保留一切权利</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="about-card about-card--main">' +
       '<div class="about-hero">' +
       '<img class="about-logo" src="logo.svg" alt="" width="64" height="64">' +
       '<h2 class="about-title">Jade EC查看器</h2>' +
@@ -981,12 +1031,15 @@
       '<div class="about-card-divider"></div>' +
       '<div class="about-info">' +
       '<div class="about-info-row"><span class="about-info-label">框架</span><span class="about-info-value"><a href="https://jade.run/" target="_blank" rel="noopener">JadeView</a></span></div>' +
-      '<div class="about-info-row"><span class="about-info-label">开发作者</span><span class="about-info-value"><a href="https://github.com/tuyangJs/" target="_blank" rel="noopener">Tuyang</a></span></div>' +
-      '<div class="about-info-row"><span class="about-info-label">交流QQ群</span><span class="about-info-value"><a href="https://qm.qq.com/q/KB9Lecm24K" target="_blank" rel="noopener">加入群聊</a></span></div>' +
+      '<div class="about-info-row"><span class="about-info-label">创始人</span><span class="about-info-value"><a href="https://github.com/tuyangJs/" target="_blank" rel="noopener">Tuyang</a></span></div>' +
+      '<div class="about-info-row"><span class="about-info-label">项目仓库</span><span class="about-info-value"><a href="https://github.com/tuyangJs/Jade_ec" target="_blank" rel="noopener">GitHub</a></span></div>' +
+      '<div class="about-info-row"><span class="about-info-label">版本更新</span><span class="about-info-value"><button class="about-check-update-btn" id="aboutCheckUpdate">检查更新</button></span></div>' +
+      '<div class="about-info-row"><span class="about-info-label">交流QQ群</span><span class="about-info-value"><a href="https://qm.qq.com/q/6eV19IEyM8" target="_blank" rel="noopener">711848268</a></span></div>' +
       '<div class="about-info-row"><span class="about-info-label">字体</span><span class="about-info-value">Source Han Sans SC</span></div>' +
       '</div>' +
       '</div>' +
-      '<div class="about-card">' +
+      '</div>' +
+      '<div class="about-card about-card--tips">' +
       '<div class="about-tips">' +
       '<div class="about-tips-title">使用说明</div>' +
       '<div class="about-tips-list">' +
@@ -1037,9 +1090,28 @@
       '</div>' +
       '</div>' +
       '</div>' +
-      '</div>' +
       '</div>';
     detailEmpty.innerHTML = html;
+
+    // 检查更新按钮
+    var checkBtn = document.getElementById('aboutCheckUpdate');
+    if (checkBtn) {
+      checkBtn.addEventListener('click', function () {
+        checkBtn.textContent = '检查中...';
+        checkBtn.disabled = true;
+        if (typeof UpdateChecker !== 'undefined') {
+          UpdateChecker.check(function () {
+            // 无更新
+            checkBtn.textContent = '已是最新';
+            checkBtn.disabled = false;
+            setTimeout(function () { checkBtn.textContent = '检查更新'; }, 3000);
+          });
+        } else {
+          checkBtn.textContent = '检查更新';
+          checkBtn.disabled = false;
+        }
+      });
+    }
   }
 
   function renderSettingsPage() {
@@ -1095,6 +1167,10 @@
       '<div class="settings-item">' +
       '<div class="settings-item-info"><div class="settings-item-label">显示备注预览</div><div class="settings-item-desc">在列表项下方显示备注内容</div></div>' +
       '<label class="settings-toggle"><input type="checkbox" id="sp_showRemark"' + (appSettings.showRemark ? ' checked' : '') + '><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
+      '</div>' +
+      '<div class="settings-item">' +
+      '<div class="settings-item-info"><div class="settings-item-label">列表分割线</div><div class="settings-item-desc">在列表项之间显示分割线</div></div>' +
+      '<label class="settings-toggle"><input type="checkbox" id="sp_showListDivider"' + (appSettings.showListDivider ? ' checked' : '') + '><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
       '</div></div>' +
 
       // 详情
@@ -1183,8 +1259,8 @@
     var desc = getItemDesc(item);
 
     var showCopyBtns = (state.activeCategory === 'subroutines' || state.activeCategory === 'dllCommands');
-    var showClassVarBtn = (state.activeCategory === 'classes' || state.activeCategory === 'dataTypes');
-    var showDllDeclBtn = (state.activeCategory === 'dllCommands');
+    var showClassBtn = (state.activeCategory === 'classes');
+    var showDataTypeBtn = (state.activeCategory === 'dataTypes');
     var showGlobalDeclBtn = (state.activeCategory === 'globalVars');
     var showConstBtn = (state.activeCategory === 'constants');
 
@@ -1201,14 +1277,20 @@
         '<button class="copy-code-btn" data-lang="e" data-type="call" title="复制调用代码">' +
         ICON_COPY_SM +
         '<span>复制</span></button>' +
-        '</div>' : '') +
-      (showDllDeclBtn ?
-        '<div class="detail-actions">' +
-        '<button class="copy-code-btn" data-lang="e" data-type="decl" title="复制DLL声明">' +
+        '<button class="copy-code-btn" data-lang="e" data-type="decl" title="复制声明">' +
         ICON_FOLDER +
-        '<span>声明代码</span></button>' +
+        '<span>复制声明</span></button>' +
         '</div>' : '') +
-      (showClassVarBtn ?
+      (showClassBtn ?
+        '<div class="detail-actions">' +
+        '<button class="copy-code-btn" data-lang="e" data-type="decl" title="复制签名">' +
+        ICON_FOLDER +
+        '<span>复制签名</span></button>' +
+        '<button class="copy-code-btn" data-lang="e" data-type="varDecl" title="复制变量声明">' +
+        ICON_FOLDER +
+        '<span>变量声明</span></button>' +
+        '</div>' : '') +
+      (showDataTypeBtn ?
         '<div class="detail-actions">' +
         '<button class="copy-code-btn" data-lang="e" data-type="decl" title="复制声明代码">' +
         ICON_FOLDER +
@@ -1425,11 +1507,24 @@
     var html = renderMethodTable('DLL 命令名', item.name, item.returnType, item.remark, item.params || [], '传址');
 
     if (item.fileName || item.cmdName) {
+      var cmdNameVal = item.cmdName || '-';
+      var cmdNameHtml = '<code>' + escapeHtml(cmdNameVal) + '</code>';
+      if (item.cmdName) {
+        var dllName = (item.fileName || '').replace(/\.(dll|DLL)$/i, '');
+        cmdNameHtml += ' ' +
+          '<a class="dll-doc-link" href="https://learn.microsoft.com/en-us/search/?terms=' + encodeURIComponent(item.cmdName) + '" target="_blank" rel="noopener" title="在 Microsoft Learn 中搜索">' +
+          '<svg width="14" height="14" viewBox="0 0 25 25" fill="none"><path d="M11.5216 0.5H0V11.9067H11.5216V0.5Z" fill="#f25022"/><path d="M24.2418 0.5H12.7202V11.9067H24.2418V0.5Z" fill="#7fba00"/><path d="M11.5216 13.0933H0V24.5H11.5216V13.0933Z" fill="#00a4ef"/><path d="M24.2418 13.0933H12.7202V24.5H24.2418V13.0933Z" fill="#ffb900"/></svg>' +
+          '</a>' +
+          '<a class="dll-doc-link" href="https://www.pinvoke.net/default.aspx/' + encodeURIComponent(dllName) + '/' + encodeURIComponent(item.cmdName) + '" target="_blank" rel="noopener" title="在 pinvoke.net 中查看">' +
+          '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.2"/><path d="M5 6h6M5 8h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>' +
+          '</a>';
+      }
       html += '<div class="detail-section">' +
         '<div class="detail-section-title">DLL 信息</div>' +
         '<div class="detail-props">' +
         renderProp('DLL 文件', item.fileName || '-') +
-        renderProp('命令名', item.cmdName || '-', true) +
+        '<div class="detail-prop-label">命令名</div>' +
+        '<div class="detail-prop-value dll-cmd-value">' + cmdNameHtml + '</div>' +
         '</div></div>';
     }
 
@@ -1446,8 +1541,8 @@
 
     var methods = item.methods || [];
     var className = item.name || '';
-    methods.forEach(function (m) {
-      html += '<div class="method-section-header">' +
+    methods.forEach(function (m, mi) {
+      html += '<div class="method-section-header" id="method-' + mi + '">' +
         '<span class="method-section-name">' + escapeHtml(String(m.name || '')) + '</span>' +
         '<div class="detail-actions">' +
         '<button class="copy-code-btn" data-lang="e" data-type="params" data-method="' + escapeHtml(String(m.name || '')) + '" data-class="' + escapeHtml(String(className)) + '" title="复制参数声明">' +
@@ -1461,6 +1556,11 @@
         '<path d="M3 11V3a1.5 1.5 0 011.5-1.5H11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>' +
         '</svg>' +
         '<span>复制</span></button>' +
+        '<button class="copy-code-btn" data-lang="e" data-type="decl" data-method="' + escapeHtml(String(m.name || '')) + '" data-class="' + escapeHtml(String(className)) + '" title="复制签名">' +
+        '<svg width="12" height="12" viewBox="0 0 16 16" fill="none">' +
+        '<path d="M2 4v9h12V6H8L6 4H2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>' +
+        '</svg>' +
+        '<span>复制签名</span></button>' +
         '</div>' +
         '</div>';
       html += renderMethodTable('子程序名', m.name, m.returnType, m.remark, m.params || [], '参考');
@@ -1826,6 +1926,43 @@
 
   // 搜索结果：单击选中预览，双击跳转
   listItems.addEventListener('click', function (e) {
+    // 类树形列表：点击方法子项
+    var treeChild = e.target.closest('.tree-child');
+    if (treeChild && !treeChild.classList.contains('tree-child--empty')) {
+      var classIdx = parseInt(treeChild.dataset.classIndex, 10);
+      var methodIdx = parseInt(treeChild.dataset.methodIndex, 10);
+
+      // 如果当前未选中该类，先选中
+      if (state.activeItem !== classIdx) {
+        state.activeItem = classIdx;
+        var prevActive = listItems.querySelector('.list-item.active');
+        if (prevActive) prevActive.classList.remove('active');
+        var treeParent = treeChild.closest('.tree-group').querySelector('.tree-parent');
+        treeParent.classList.add('active');
+        treeParent.closest('.tree-group').classList.add('tree-group--active');
+
+        var items = state.classes || [];
+        if (items[classIdx]) renderDetail(items[classIdx]);
+      }
+
+      // 滚动到对应方法并闪烁
+      setTimeout(function () {
+        var methodEl = document.getElementById('method-' + methodIdx);
+        if (methodEl) {
+          var container = document.querySelector('.detail-content');
+          if (container && methodEl) {
+            var offset = methodEl.offsetTop - container.offsetTop - 18;
+            container.scrollTo({ top: offset, behavior: 'smooth' });
+          }
+          methodEl.classList.remove('method-flash');
+          // 强制 reflow 以重新触发动画
+          void methodEl.offsetWidth;
+          methodEl.classList.add('method-flash');
+        }
+      }, 50);
+      return;
+    }
+
     var listItem = e.target.closest('.list-item');
     if (!listItem) return;
     var index = parseInt(listItem.dataset.index, 10);
@@ -1842,6 +1979,21 @@
       if (items[index]) renderDetail(items[index]);
       state.activeCategory = savedCategory;
       return;
+    }
+
+    // 类树形列表：点击类名展开/折叠
+    if (listItem.classList.contains('tree-parent')) {
+      var treeGroup = listItem.closest('.tree-group');
+      var treeChildren = treeGroup.querySelector('.tree-children');
+      var treeArrow = listItem.querySelector('.tree-arrow');
+
+      if (treeChildren.style.display === 'none') {
+        treeChildren.style.display = '';
+        treeArrow.classList.add('tree-arrow--open');
+      } else {
+        treeChildren.style.display = 'none';
+        treeArrow.classList.remove('tree-arrow--open');
+      }
     }
 
     // 非搜索结果：单击直接跳转
@@ -2183,6 +2335,7 @@
   function applySettings() {
     document.documentElement.style.setProperty('--detail-font-size', appSettings.fontSize + 'px');
     document.body.classList.toggle('hide-type-underline', !appSettings.showTypeUnderline);
+    document.body.classList.toggle('show-list-divider', appSettings.showListDivider);
     // 详情页背景透明度：仅在背景材料非默认且 Windows 11 时生效
     var bgOpacity = (appSettings.backgroundMaterial !== 'default' && isWindows11) ? appSettings.detailOpacity : 100;
     document.documentElement.style.setProperty('--detail-bg-opacity', bgOpacity / 100);
@@ -2279,6 +2432,14 @@
       appSettings.showRemark = this.checked;
       saveSettings(appSettings);
       renderList();
+    });
+
+    // 列表分割线
+    var showListDividerEl = document.getElementById('sp_showListDivider');
+    if (showListDividerEl) showListDividerEl.addEventListener('change', function () {
+      appSettings.showListDivider = this.checked;
+      saveSettings(appSettings);
+      document.body.classList.toggle('show-list-divider', this.checked);
     });
 
     // 自动重载
@@ -2548,161 +2709,29 @@
   pushNav('welcome', null, '');
 
   function showAlert(title, message, type) {
-    var overlay = document.getElementById('alertOverlay');
-    var dialog = document.getElementById('alertDialog');
-    var titleEl = document.getElementById('alertTitle');
-    var messageEl = document.getElementById('alertMessage');
-    var iconEl = document.getElementById('alertIcon');
-    var okBtn = document.getElementById('alertOk');
+    if (window.Modal) Modal.alert(title, message, type);
+  }
 
-    if (titleEl) titleEl.textContent = title || '提示';
-    if (messageEl) messageEl.textContent = message || '';
-
-    // 根据类型切换图标颜色
-    if (iconEl) {
-      iconEl.classList.remove('modal-icon--success', 'modal-icon--error');
-      if (type === 'success') iconEl.classList.add('modal-icon--success');
-      if (type === 'error') iconEl.classList.add('modal-icon--error');
-    }
-
-    overlay.classList.add('active');
-    dialog.classList.add('active');
-
-    var newOk = okBtn.cloneNode(true);
-    okBtn.parentNode.replaceChild(newOk, okBtn);
-
-    function close() {
-      overlay.classList.remove('active');
-      dialog.classList.remove('active');
-    }
-
-    newOk.addEventListener('click', close);
-    overlay.addEventListener('click', function handler(e) {
-      if (e.target === overlay) { close(); overlay.removeEventListener('click', handler); }
-    });
+  function showUpdateDialog(info) {
+    if (window.Modal) Modal.update(info);
   }
 
   function showFileModifiedModal(filePath) {
-    var overlay = document.getElementById('fileModifiedOverlay');
-    var dialog = document.getElementById('fileModifiedDialog');
-    var message = document.getElementById('fileModifiedMessage');
-    var dismissBtn = document.getElementById('fileModifiedDismiss');
-    var reloadBtn = document.getElementById('fileModifiedReload');
-
-    if (filePath) {
-      message.textContent = '文件 ' + filePath + ' 已被外部程序修改，是否重新加载？';
-    } else {
-      message.textContent = '当前打开的模块文件已被外部程序修改，是否重新加载？';
+    var msg = filePath
+      ? '文件 ' + filePath + ' 已被外部程序修改，是否重新加载？'
+      : '当前打开的模块文件已被外部程序修改，是否重新加载？';
+    if (window.Modal) {
+      Modal.confirm('文件已被修改', msg, function () {
+        if (state.moduleInfo && state.moduleInfo.path) openModuleByPath(state.moduleInfo.path);
+      }, null, { confirmText: '重新加载', dismissText: '忽略', type: 'warning' });
     }
-
-    overlay.classList.add('active');
-    dialog.classList.add('active');
-
-    // 移除旧监听器（防止重复绑定）
-    var newDismiss = dismissBtn.cloneNode(true);
-    var newReload = reloadBtn.cloneNode(true);
-    dismissBtn.parentNode.replaceChild(newDismiss, dismissBtn);
-    reloadBtn.parentNode.replaceChild(newReload, reloadBtn);
-
-    function close() {
-      overlay.classList.remove('active');
-      dialog.classList.remove('active');
-    }
-
-    newDismiss.addEventListener('click', close);
-    newReload.addEventListener('click', function () {
-      close();
-      if (state.moduleInfo && state.moduleInfo.path) {
-        openModuleByPath(state.moduleInfo.path);
-      }
-    });
   }
 
   function showPasswordDialog(message, filePath) {
-    return new Promise(function (resolve) {
-      var overlay = document.getElementById('passwordOverlay');
-      var dialog = document.getElementById('passwordDialog');
-      var input = document.getElementById('passwordInput');
-      var errorEl = document.getElementById('passwordError');
-      var msgEl = document.getElementById('passwordMessage');
-      var toggleBtn = document.getElementById('passwordToggle');
-      var cancelBtn = document.getElementById('passwordCancel');
-      var confirmBtn = document.getElementById('passwordConfirm');
-      var rememberCb = document.getElementById('passwordRemember');
-      var eyeOpen = toggleBtn.querySelector('.password-eye-open');
-      var eyeClosed = toggleBtn.querySelector('.password-eye-closed');
-
-      if (message && msgEl) msgEl.textContent = message;
-      input.value = '';
-      input.type = 'password';
-      errorEl.style.display = 'none';
-      rememberCb.checked = false;
-      eyeOpen.style.display = '';
-      eyeClosed.style.display = 'none';
-
-      overlay.classList.add('active');
-      dialog.classList.add('active');
-
-      setTimeout(function () { input.focus(); }, 100);
-
-      function close(result) {
-        overlay.classList.remove('active');
-        dialog.classList.remove('active');
-        input.removeEventListener('keydown', onKeydown);
-        toggleBtn.removeEventListener('click', onToggle);
-        cancelBtn.removeEventListener('click', onCancel);
-        confirmBtn.removeEventListener('click', onConfirm);
-        overlay.removeEventListener('click', onOverlayClick);
-        resolve(result);
-      }
-
-      function showError(msg) {
-        errorEl.textContent = msg || '密码错误，请重新输入。';
-        errorEl.style.display = '';
-        input.select();
-        input.focus();
-      }
-
-      function onConfirm() {
-        var val = input.value;
-        if (!val) {
-          showError('请输入密码。');
-          return;
-        }
-        close({ password: val, remember: rememberCb.checked });
-      }
-
-      function onCancel() {
-        close(null);
-      }
-
-      function onKeydown(e) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          onConfirm();
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          onCancel();
-        }
-      }
-
-      function onToggle() {
-        var isPassword = input.type === 'password';
-        input.type = isPassword ? 'text' : 'password';
-        eyeOpen.style.display = isPassword ? 'none' : '';
-        eyeClosed.style.display = isPassword ? '' : 'none';
-      }
-
-      function onOverlayClick(e) {
-        if (e.target === overlay) onCancel();
-      }
-
-      input.addEventListener('keydown', onKeydown);
-      toggleBtn.addEventListener('click', onToggle);
-      cancelBtn.addEventListener('click', onCancel);
-      confirmBtn.addEventListener('click', onConfirm);
-      overlay.addEventListener('click', onOverlayClick);
-    });
+    var msg = message || '此模块已加密，请输入密码以打开。';
+    if (filePath) msg = filePath + '\n' + msg;
+    if (window.Modal) return Modal.password(msg);
+    return Promise.resolve(null);
   }
 
   // 延迟初始化：欢迎页已渲染后，再执行非关键初始化
@@ -2721,6 +2750,10 @@
         if (el) el.textContent = version ? 'v' + version : '';
         if (initPath && typeof initPath === 'string' && initPath.toLowerCase().endsWith('.ec')) {
           openModuleByPath(initPath);
+        }
+        // 版本更新检查
+        if (version && typeof UpdateChecker !== 'undefined') {
+          UpdateChecker.start(version, showUpdateDialog);
         }
       }).catch(function () {
         var el = document.getElementById('appVersion');
