@@ -115,7 +115,7 @@ export function confirm(title, message, onConfirm, onDismiss, opts = {}) {
  * 密码输入模态框
  * @returns {Promise<{password: string, remember: boolean}|null>}
  */
-export function password(message) {
+export function password(message, isWrongPassword) {
   return new Promise(resolve => {
     const { iconWrap, title: titleEl, body, closeBtn } = getElements();
 
@@ -161,7 +161,12 @@ export function password(message) {
     if (message && msgEl) msgEl.textContent = message;
     input.value = '';
     input.type = 'password';
-    errorEl.style.display = 'none';
+    if (isWrongPassword) {
+      errorEl.textContent = '密码错误，请重新输入。';
+      errorEl.style.display = '';
+    } else {
+      errorEl.style.display = 'none';
+    }
     rememberCb.checked = false;
     eyeOpen.style.display = '';
     eyeClosed.style.display = 'none';

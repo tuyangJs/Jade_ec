@@ -17,4 +17,5 @@ build/
 *.japk
 
 # Rust build output
-rust/target/
+**/target/
+/py/
