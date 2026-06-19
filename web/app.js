@@ -13,7 +13,10 @@
     activeItem: null,
     searchQuery: '',
     loading: false,
-    loadedCategories: {}
+    loadedCategories: {},
+    previewItem: null,
+    previewCategory: null,
+    currentMd5: ''
   };
 
   // --- Settings ---
@@ -27,10 +30,14 @@
     detailOpacity: 100,
     showTypeUnderline: true,
     showTypeTooltip: true,
-    showListDivider: false
+    showListDivider: false,
+    rememberNavState: true
   };
 
   var isWindows11 = false;
+  var categoryScrollPositions = {};  // 各导航页的滚动位置缓存
+  var categoryActiveItems = {};      // 各导航页的激活项缓存
+  var pendingScrollTop = null;        // 待恢复的滚动位置（导航切换时传递给渲染函数）
 
   function loadSettings() {
     try {
@@ -177,6 +184,9 @@
     state.activeCategory = entry.category;
     state.activeItem = entry.itemIndex;
     state.searchQuery = entry.searchQuery || '';
+    state.previewItem = null;
+    state.previewCategory = null;
+    categoryActiveItems[entry.category] = state.activeItem;
     searchInput.value = state.searchQuery;
     // 恢复搜索模式标签
     if (state.searchQuery) {
@@ -238,6 +248,8 @@
     var items = state[entry.category] || [];
     if (entry.itemIndex !== null && items[entry.itemIndex]) {
       renderDetail(items[entry.itemIndex]);
+    } else if (state.previewItem) {
+      renderDetail(state.previewItem);
     } else {
       renderDetail(null);
     }
@@ -340,6 +352,10 @@
     state.activeItem = null;
     state.searchQuery = '';
     state.loadedCategories = {};
+    state.currentMd5 = '';
+    categoryScrollPositions = {};
+    categoryActiveItems = {};
+    pendingScrollTop = null;
     // 重置类型查找 Map
     classNameMap = null;
     dataTypeNameMap = null;
@@ -424,6 +440,93 @@
   function removeRecentModule(filePath) {
     var list = getRecentModules().filter(function (m) { return m.path !== filePath; });
     localStorage.setItem('recentModules', JSON.stringify(list));
+  }
+
+  // --- 搜索记录（按文件 MD5 存储） ---
+  var SEARCH_HISTORY_MAX = 10;  // 每个文件最多记录条数
+  var SEARCH_MD5_MAX = 20;      // 最多记录的文件数
+  var NAV_STATE_MD5_MAX = 20;   // 导航状态最多记录的文件数
+
+  function getSearchHistory() {
+    if (!state.currentMd5) return [];
+    try {
+      return JSON.parse(localStorage.getItem('searchHistory_' + state.currentMd5) || '[]');
+    } catch (e) { return []; }
+  }
+
+  function getSearchMd5List() {
+    try {
+      return JSON.parse(localStorage.getItem('searchHistoryMd5List') || '[]');
+    } catch (e) { return []; }
+  }
+
+  function addSearchHistory(query) {
+    if (!state.currentMd5 || !query) return;
+    // 去重并移到顶部
+    var list = getSearchHistory().filter(function (h) { return h.query !== query; });
+    list.unshift({ query: query, time: Date.now() });
+    if (list.length > SEARCH_HISTORY_MAX) list = list.slice(0, SEARCH_HISTORY_MAX);
+    localStorage.setItem('searchHistory_' + state.currentMd5, JSON.stringify(list));
+
+    // 更新 MD5 列表，当前 MD5 移到顶部
+    var md5List = getSearchMd5List().filter(function (m) { return m !== state.currentMd5; });
+    md5List.unshift(state.currentMd5);
+    // 超出上限时删除最旧的 MD5 及其搜索记录
+    if (md5List.length > SEARCH_MD5_MAX) {
+      var removed = md5List.splice(SEARCH_MD5_MAX);
+      removed.forEach(function (oldMd5) {
+        localStorage.removeItem('searchHistory_' + oldMd5);
+      });
+    }
+    localStorage.setItem('searchHistoryMd5List', JSON.stringify(md5List));
+  }
+
+  function clearSearchHistory() {
+    if (!state.currentMd5) return;
+    localStorage.removeItem('searchHistory_' + state.currentMd5);
+    var md5List = getSearchMd5List().filter(function (m) { return m !== state.currentMd5; });
+    localStorage.setItem('searchHistoryMd5List', JSON.stringify(md5List));
+  }
+
+  // --- 导航状态持久化（按文件 MD5 存储） ---
+  function getNavStateMd5List() {
+    try {
+      return JSON.parse(localStorage.getItem('navStateMd5List') || '[]');
+    } catch (e) { return []; }
+  }
+
+  function getNavState() {
+    if (!state.currentMd5) return null;
+    try {
+      return JSON.parse(localStorage.getItem('navState_' + state.currentMd5) || 'null');
+    } catch (e) { return null; }
+  }
+
+  function saveNavState() {
+    if (!appSettings.rememberNavState || !state.currentMd5) return;
+    var navState = {
+      category: state.activeCategory,
+      itemIndex: state.activeItem,
+      scrollTop: listItems.scrollTop
+    };
+    localStorage.setItem('navState_' + state.currentMd5, JSON.stringify(navState));
+
+    var md5List = getNavStateMd5List().filter(function (m) { return m !== state.currentMd5; });
+    md5List.unshift(state.currentMd5);
+    if (md5List.length > NAV_STATE_MD5_MAX) {
+      var removed = md5List.splice(NAV_STATE_MD5_MAX);
+      removed.forEach(function (oldMd5) {
+        localStorage.removeItem('navState_' + oldMd5);
+      });
+    }
+    localStorage.setItem('navStateMd5List', JSON.stringify(md5List));
+  }
+
+  function clearNavState() {
+    if (!state.currentMd5) return;
+    localStorage.removeItem('navState_' + state.currentMd5);
+    var md5List = getNavStateMd5List().filter(function (m) { return m !== state.currentMd5; });
+    localStorage.setItem('navStateMd5List', JSON.stringify(md5List));
   }
 
   function renderWelcome() {
@@ -821,6 +924,20 @@
       state.moduleInfo.path = filePath;
       addRecentModule(filePath, moduleInfo.name);
 
+      // Phase 2 完成标志，用于 MD5 获取后判断是否需要恢复导航状态
+      var categoriesParsed = false;
+
+      // 获取文件 MD5 用于搜索记录存储
+      invoke('get_file_md5', filePath).then(function (md5) {
+        state.currentMd5 = (typeof md5 === 'string' ? md5 : '') || '';
+        // 如果分类已加载完成，恢复导航状态
+        if (categoriesParsed) {
+          restoreNavState();
+        }
+      }).catch(function () {
+        state.currentMd5 = '';
+      });
+
       // Mark all categories as loading
       var catKeys = Object.keys(categories);
       catKeys.forEach(function (key) {
@@ -853,6 +970,11 @@
           renderList();
           renderDetail(null);
           updateNavButtons();
+          categoriesParsed = true;
+          // 如果 MD5 已获取，恢复导航状态
+          if (state.currentMd5) {
+            restoreNavState();
+          }
           return;
         }
 
@@ -875,6 +997,28 @@
 
         // Yield to browser so it can paint the loading state change
         setTimeout(parseNextCategory, 0);
+      }
+
+      // 恢复导航状态（导航页、激活项、滚动位置）
+      function restoreNavState() {
+        if (!appSettings.rememberNavState || !state.currentMd5) return;
+        var navState = getNavState();
+        if (!navState || !navState.category || !categories[navState.category]) return;
+        state.activeCategory = navState.category;
+        state.activeItem = navState.itemIndex;
+        setActiveNav(navState.category);
+        if (navState.scrollTop) {
+          pendingScrollTop = navState.scrollTop;
+        }
+        navHistory = [];
+        navIndex = -1;
+        pushNav(navState.category, navState.itemIndex, navState.category === 'search' ? (state.searchQuery || '') : '');
+        navIgnore = false;
+        renderList();
+        var items = state[state.activeCategory] || [];
+        if (navState.itemIndex != null && items[navState.itemIndex]) {
+          renderDetail(items[navState.itemIndex]);
+        }
       }
 
       // Use setTimeout to ensure the loading overlay fade-out and nav-loading appear first
@@ -1038,12 +1182,15 @@
   }
 
   function renderList() {
+    if (state.activeCategory !== 'search') {
+      state.activeItem = categoryActiveItems[state.activeCategory] != null ? categoryActiveItems[state.activeCategory] : state.activeItem;
+    }
     if (state.activeCategory === 'search' && state.searchQuery) {
       var parsed = parseSearchQuery(state.searchQuery);
       var q = parsed.query.toLowerCase();
       var terms = q.split(/\s+/).filter(function (t) { return t.length > 0; });
       var modeLabel = parsed.mode !== 'all' ? ' [' + searchModes[parsed.mode].label + ']' : '';
-      listTitle.textContent = '搜索: ' + parsed.query + modeLabel;
+      listTitle.textContent = parsed.query + modeLabel;
 
       // 全局搜索所有分类
       var results = [];
@@ -1124,6 +1271,8 @@
     } else if (items.length > VIRTUAL_THRESHOLD) {
       renderVirtualList(items, config);
     } else {
+      var savedScrollTop = pendingScrollTop != null ? pendingScrollTop : listItems.scrollTop;
+      pendingScrollTop = null;
       listItems.innerHTML = items.map(function (item, index) {
         var name = getItemName(item);
         var desc = getItemDesc(item);
@@ -1135,10 +1284,13 @@
           (appSettings.showRemark && desc ? '<div class="item-sub">' + escapeHtml(desc) + '</div>' : '') +
           '</div></div>';
       }).join('');
+      listItems.scrollTop = savedScrollTop;
     }
   }
 
   function renderClassTreeList(items) {
+    var savedScrollTop = pendingScrollTop != null ? pendingScrollTop : listItems.scrollTop;
+    pendingScrollTop = null;
     var html = '';
     items.forEach(function (item, index) {
       var isActive = state.activeItem === index;
@@ -1166,9 +1318,12 @@
       html += '</div></div>';
     });
     listItems.innerHTML = html;
+    listItems.scrollTop = savedScrollTop;
   }
 
   function renderConstantTreeList(items) {
+    var savedScrollTop = pendingScrollTop != null ? pendingScrollTop : listItems.scrollTop;
+    pendingScrollTop = null;
     var CONST_TYPE_MAP = { 1: '普通常量', 2: '图片', 3: '声音' };
     // 按常量类型分组
     var groups = {};
@@ -1205,6 +1360,7 @@
       html += '</div></div>';
     });
     listItems.innerHTML = html;
+    listItems.scrollTop = savedScrollTop;
   }
 
   // --- Virtual List ---
@@ -1236,6 +1392,9 @@
   }
 
   function renderVirtualList(items, config) {
+    // 保存滚动位置（清空 innerHTML 会重置 scrollTop）
+    var savedScrollTop = pendingScrollTop != null ? pendingScrollTop : listItems.scrollTop;
+    pendingScrollTop = null;
     // 清空并设置虚拟容器
     listItems.innerHTML = '';
     var positions = buildItemPositions(items);
@@ -1250,6 +1409,9 @@
     var content = document.createElement('div');
     content.className = 'virtual-content';
     listItems.appendChild(content);
+
+    // 恢复滚动位置
+    listItems.scrollTop = savedScrollTop;
 
     var rafId = null;
 
@@ -1339,7 +1501,7 @@
       '<div class="about-info-row"><span class="about-info-label">项目仓库</span><span class="about-info-value"><a href="https://github.com/tuyangJs/Jade_ec" target="_blank" rel="noopener">GitHub</a></span></div>' +
       '<div class="about-info-row"><span class="about-info-label">版本更新</span><span class="about-info-value"><button class="about-check-update-btn" id="aboutCheckUpdate">检查更新</button></span></div>' +
       '<div class="about-info-row"><span class="about-info-label">交流QQ群</span><span class="about-info-value"><a href="https://qm.qq.com/q/6eV19IEyM8" target="_blank" rel="noopener">711848268</a></span></div>' +
-      '<div class="about-info-row"><span class="about-info-label">字体</span><span class="about-info-value">Source Han Sans SC</span></div>' +
+      '<div class="about-info-row"><span class="about-info-label">字体</span><span class="about-info-value">HarmonyOS Sans</span></div>' +
       '</div>' +
       '</div>' +
       '</div>' +
@@ -1419,19 +1581,35 @@
   }
 
   function renderSettingsPage() {
+    // 列表面板：渲染设置分类
+    var settingsSections = [
+      { id: 'appearance', name: '外观', desc: '主题、背景、字体' },
+      { id: 'list', name: '列表', desc: '备注、分割线' },
+      { id: 'detail', name: '详情', desc: '类型显示' },
+      { id: 'search', name: '搜索', desc: '默认搜索方式' },
+      { id: 'file', name: '文件', desc: '自动重载、导航位置' },
+      { id: 'viewer', name: '默认查看器', desc: '关联 .ec 文件' }
+    ];
+    listTitle.textContent = '设置';
+    listCount.textContent = settingsSections.length + ' 项';
+    listItems.innerHTML = settingsSections.map(function (s, i) {
+      return '<div class="list-item' + (i === 0 ? ' active' : '') + '" data-settings-section="' + s.id + '">' +
+        '<div class="item-info">' +
+        '<div class="item-name">' + s.name + '</div>' +
+        '<div class="item-sub">' + s.desc + '</div>' +
+        '</div></div>';
+    }).join('');
+
     detailContent.style.display = 'none';
     detailEmpty.style.display = '';
     var recentModules = getRecentModules();
     var recentDesc = recentModules.length > 0 ? ('当前 ' + recentModules.length + ' 条记录') : '当前无记录';
     var modeInfo = searchModes[appSettings.defaultSearch] || searchModes.all;
     var html = '<div class="settings-page">' +
-      '<div class="settings-page-header">' +
-      '<h2 class="settings-page-title">设置</h2>' +
-      '</div>' +
       '<div class="settings-page-body">' +
 
       // 外观
-      '<div class="settings-section">' +
+      '<div class="settings-section" id="settings-section-appearance">' +
       '<div class="settings-section-title">外观</div>' +
       '<div class="settings-item">' +
       '<div class="settings-item-info"><div class="settings-item-label">主题模式</div><div class="settings-item-desc">选择界面配色主题</div></div>' +
@@ -1466,7 +1644,7 @@
       '</div>' +
 
       // 列表
-      '<div class="settings-section">' +
+      '<div class="settings-section" id="settings-section-list">' +
       '<div class="settings-section-title">列表</div>' +
       '<div class="settings-item">' +
       '<div class="settings-item-info"><div class="settings-item-label">显示备注预览</div><div class="settings-item-desc">在列表项下方显示备注内容</div></div>' +
@@ -1478,7 +1656,7 @@
       '</div></div>' +
 
       // 详情
-      '<div class="settings-section">' +
+      '<div class="settings-section" id="settings-section-detail">' +
       '<div class="settings-section-title">详情</div>' +
       '<div class="settings-item">' +
       '<div class="settings-item-info"><div class="settings-item-label">类型下划线</div><div class="settings-item-desc">在参数类型和返回类型下方显示下划线</div></div>' +
@@ -1490,7 +1668,7 @@
       '</div></div>' +
 
       // 搜索
-      '<div class="settings-section">' +
+      '<div class="settings-section" id="settings-section-search">' +
       '<div class="settings-section-title">搜索</div>' +
       '<div class="settings-item">' +
       '<div class="settings-item-info"><div class="settings-item-label">默认搜索方式</div><div class="settings-item-desc">打开搜索时的默认搜索范围</div></div>' +
@@ -1510,11 +1688,15 @@
       '</div></div></div></div>' +
 
       // 文件
-      '<div class="settings-section">' +
+      '<div class="settings-section" id="settings-section-file">' +
       '<div class="settings-section-title">文件</div>' +
       '<div class="settings-item">' +
       '<div class="settings-item-info"><div class="settings-item-label">文件修改时自动重载</div><div class="settings-item-desc">模块文件被外部修改时自动重新加载</div></div>' +
       '<label class="settings-toggle"><input type="checkbox" id="sp_autoReload"' + (appSettings.autoReload ? ' checked' : '') + '><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
+      '</div>' +
+      '<div class="settings-item">' +
+      '<div class="settings-item-info"><div class="settings-item-label">记住导航位置</div><div class="settings-item-desc">重新打开模块时恢复上次的导航页和列表位置</div></div>' +
+      '<label class="settings-toggle"><input type="checkbox" id="sp_rememberNavState"' + (appSettings.rememberNavState ? ' checked' : '') + '><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
       '</div>' +
       '<div class="settings-item">' +
       '<div class="settings-item-info"><div class="settings-item-label">清除最近打开记录</div><div class="settings-item-desc" id="sp_recentCountDesc">' + recentDesc + '</div></div>' +
@@ -1522,7 +1704,7 @@
       '</div></div>' +
 
       // 默认查看器
-      '<div class="settings-section">' +
+      '<div class="settings-section" id="settings-section-viewer">' +
       '<div class="settings-section-title">默认查看器</div>' +
       '<div class="settings-item">' +
       '<div class="settings-item-info"><div class="settings-item-label">易语言默认模块查看器</div><div class="settings-item-desc" id="sp_replaceViewerDesc">检查中...</div></div>' +
@@ -1650,10 +1832,15 @@
         var type = copyBtn.dataset.type || 'call';
         var methodName = copyBtn.dataset.method || '';
         var className = copyBtn.dataset.class || '';
-        var items = state[state.activeCategory] || [];
-        var item = items[state.activeItem];
+        var item = state.previewItem;
+        var category = state.previewCategory || state.activeCategory;
+        if (!item) {
+          var items = state[state.activeCategory] || [];
+          item = items[state.activeItem];
+          category = state.activeCategory;
+        }
         if (item && window.CodeCopy) {
-          var code = window.CodeCopy.generate(lang, state.activeCategory, item, type, methodName, className);
+          var code = window.CodeCopy.generate(lang, category, item, type, methodName, className);
           if (code) {
             copyToClipboard(code, copyBtn);
           }
@@ -1748,11 +1935,11 @@
     var hasByRef = params.some(function (p) { return p.byRef !== undefined; });
     byRefLabel = byRefLabel || '参考';
 
-    // colgroup: 名称auto 类型auto [参考46px] [可空46px] [数组46px] 备注=100%
+    // colgroup: 名称auto 类型auto [参考46px] [数组46px] [可空46px] 备注=100%
     var colgroup = '<colgroup><col><col>' +
       (hasByRef ? '<col style="width:46px">' : '') +
-      (hasNullable ? '<col style="width:46px">' : '') +
       (hasIsArray ? '<col style="width:46px">' : '') +
+      (hasNullable ? '<col style="width:46px">' : '') +
       '<col style="width:100%"></colgroup>';
 
     var remarkColspan = 1 + (hasByRef ? 1 : 0) + (hasNullable ? 1 : 0) + (hasIsArray ? 1 : 0);
@@ -1770,14 +1957,14 @@
     if (params.length > 0) {
       var paramColgroup = '<colgroup><col><col>' +
         (hasByRef ? '<col style="width:40px">' : '') +
-        (hasNullable ? '<col style="width:40px">' : '') +
         (hasIsArray ? '<col style="width:40px">' : '') +
+        (hasNullable ? '<col style="width:40px">' : '') +
         '<col style="width:100%"></colgroup>';
 
       html += '<tr class="sub-header-row"><th>参数名</th><th>类型</th>' +
         (hasByRef ? '<th>' + escapeHtml(byRefLabel) + '</th>' : '') +
-        (hasNullable ? '<th>可空</th>' : '') +
         (hasIsArray ? '<th>数组</th>' : '') +
+        (hasNullable ? '<th>可空</th>' : '') +
         '<th>备注</th></tr>';
 
       params.forEach(function (p) {
@@ -1785,8 +1972,8 @@
           '<td class="param-name">' + escapeHtml(String(p.name || '-')) + '</td>' +
           '<td class="param-type">' + renderType(p.dataType || '-') + '</td>' +
           (hasByRef ? '<td class="check-cell">' + (p.byRef ? '✓' : '') + '</td>' : '') +
-          (hasNullable ? '<td class="check-cell">' + (p.nullable ? '✓' : '') + '</td>' : '') +
           (hasIsArray ? '<td class="check-cell">' + (p.isArray ? '✓' : '') + '</td>' : '') +
+          (hasNullable ? '<td class="check-cell">' + (p.nullable ? '✓' : '') + '</td>' : '') +
           '<td>' + escapeHtml(String(p.remark || '')) + '</td></tr>';
       });
     }
@@ -1972,18 +2159,18 @@
     var byRefLabel = isDll ? '传址' : '参考';
 
     var colgroup = '<colgroup><col><col>' +
+      (hasByRef ? '<col style="width:46px">' : '') +
       (hasIsArray ? '<col style="width:46px">' : '') +
       (hasArrayBounds ? '<col style="width:46px">' : '') +
       (hasNullable ? '<col style="width:46px">' : '') +
-      (hasByRef ? '<col style="width:46px">' : '') +
       '<col style="width:100%"></colgroup>';
 
     var html = '<table class="detail-table">' + colgroup + '<thead><tr>' +
       '<th>名称</th><th>数据类型</th>' +
+      (hasByRef ? '<th>' + byRefLabel + '</th>' : '') +
       (hasIsArray ? '<th>数组</th>' : '') +
       (hasArrayBounds ? '<th>数组</th>' : '') +
       (hasNullable ? '<th>可空</th>' : '') +
-      (hasByRef ? '<th>' + byRefLabel + '</th>' : '') +
       '<th>备注</th></tr></thead><tbody>';
 
     params.forEach(function (p) {
@@ -1997,10 +2184,10 @@
       html += '<tr>' +
         '<td class="param-name">' + escapeHtml(String(name)) + '</td>' +
         '<td class="param-type">' + renderType(p.dataType || '-') + '</td>' +
+        (hasByRef ? '<td class="check-cell">' + byRef + '</td>' : '') +
         (hasIsArray ? '<td class="check-cell">' + isArray + '</td>' : '') +
         (hasArrayBounds ? '<td class="check-cell">' + arrayBounds + '</td>' : '') +
         (hasNullable ? '<td class="check-cell">' + nullable + '</td>' : '') +
-        (hasByRef ? '<td class="check-cell">' + byRef + '</td>' : '') +
         '<td>' + escapeHtml(String(desc)) + '</td></tr>';
     });
 
@@ -2080,7 +2267,7 @@
   }
 
   function renderType(typeName) {
-    if (!typeName || typeName === '-') return escapeHtml(typeName || '-');
+    if (!typeName || typeName === '-') return '';
     var name = String(typeName);
     var tooltip = appSettings.showTypeTooltip ? getTypeTooltip(name) : '';
     var titleAttr = tooltip ? ' title="' + escapeHtml(tooltip) + '"' : '';
@@ -2187,11 +2374,19 @@
     var category = navItem.dataset.category;
     if (!category || category === state.activeCategory) return;
 
+    // 保存当前页的滚动位置和激活项
+    if (state.activeCategory) {
+      categoryScrollPositions[state.activeCategory] = listItems.scrollTop;
+      categoryActiveItems[state.activeCategory] = state.activeItem;
+    }
+
     setActiveNav(category);
 
     pushNav(category, null, category === 'search' ? (state.searchQuery || '') : '');
     state.activeCategory = category;
-    state.activeItem = null;
+    state.activeItem = categoryActiveItems[category] != null ? categoryActiveItems[category] : null;
+    state.previewItem = null;
+    state.previewCategory = null;
     // 切回搜索时恢复搜索框内容
     if (category === 'search' && state.searchQuery) {
       searchInput.value = state.searchQuery;
@@ -2200,11 +2395,26 @@
         setSearchModeTag(parsed.mode);
       }
     }
+    if (category !== 'search') {
+      state.activeItem = categoryActiveItems[category] != null ? categoryActiveItems[category] : null;
+    }
     // 显示列表面板
     listPanelEl.style.display = '';
     listResize.style.display = '';
+    // 通过 pendingScrollTop 传递目标页的滚动位置给渲染函数
+    // （不能直接设置 listItems.scrollTop，因为此时列表内容还是旧分类的，可能被浏览器裁剪）
+    var savedScroll = categoryScrollPositions[category];
+    if (savedScroll != null) {
+      pendingScrollTop = savedScroll;
+    }
     renderList();
-    renderDetail(null);
+    var navItems = state[category] || [];
+    if (state.activeItem != null && navItems[state.activeItem]) {
+      renderDetail(navItems[state.activeItem]);
+    } else {
+      renderDetail(null);
+    }
+    saveNavState();
   });
 
   sidebarNavBottom.addEventListener('click', function (e) {
@@ -2215,6 +2425,11 @@
 
     setActiveNavBottom(page);
 
+    if (state.activeCategory) {
+      categoryScrollPositions[state.activeCategory] = listItems.scrollTop;
+      categoryActiveItems[state.activeCategory] = state.activeItem;
+    }
+
     state.activeCategory = page;
     state.activeItem = null;
     state.searchQuery = '';
@@ -2222,12 +2437,17 @@
     if (currentSearchMode) setSearchModeTag(null);
     // 记录导航
     pushNav(page, null, '');
-    // 隐藏列表面板
-    listPanelEl.style.display = 'none';
-    listResize.style.display = 'none';
 
-    if (page === 'about') renderAboutPage();
-    else if (page === 'settings') renderSettingsPage();
+    if (page === 'about') {
+      listPanelEl.style.display = 'none';
+      listResize.style.display = 'none';
+      renderAboutPage();
+    } else if (page === 'settings') {
+      // 设置页：列表面板显示分类，详情面板显示设置内容
+      listPanelEl.style.display = '';
+      listResize.style.display = '';
+      renderSettingsPage();
+    }
   });
 
   // 搜索结果：单击选中预览，双击跳转
@@ -2292,10 +2512,15 @@
       var prevActive = listItems.querySelector('.list-item.active');
       if (prevActive) prevActive.classList.remove('active');
       listItem.classList.add('active');
+      categoryActiveItems[searchCat] = index;
       var savedCategory = state.activeCategory;
       state.activeCategory = searchCat;
       var items = state[searchCat] || [];
-      if (items[index]) renderDetail(items[index]);
+      if (items[index]) {
+        renderDetail(items[index]);
+        state.previewItem = items[index];
+        state.previewCategory = searchCat;
+      }
       state.activeCategory = savedCategory;
       return;
     }
@@ -2316,7 +2541,10 @@
     }
 
     // 非搜索结果：单击直接跳转
+    state.previewItem = null;
+    state.previewCategory = null;
     state.activeItem = index;
+    categoryActiveItems[state.activeCategory] = index;
     pushNav(state.activeCategory, index, '');
 
     var prevActive = listItems.querySelector('.list-item.active');
@@ -2325,6 +2553,7 @@
 
     var items = state[state.activeCategory] || [];
     if (items[index]) renderDetail(items[index]);
+    saveNavState();
   });
 
   listItems.addEventListener('dblclick', function (e) {
@@ -2344,6 +2573,8 @@
         navHistory[navHistory.length - 1].searchActiveIdx = index;
       }
 
+      state.previewItem = null;
+      state.previewCategory = null;
       state.searchQuery = '';
       searchInput.value = '';
       if (currentSearchMode) setSearchModeTag(null);
@@ -2354,17 +2585,22 @@
       pushNav(state.activeCategory, index, '');
       renderList();
 
-      var activeEl = listPanelEl.querySelector('.list-item.active');
-      if (activeEl) {
-        activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      } else {
-        var catItems = state[state.activeCategory] || [];
-        if (catItems.length > 50) {
-          var estPos = 0;
-          for (var pi = 0; pi < index; pi++) estPos += getItemHeight(catItems[pi]);
-          listItems.scrollTop = estPos - listItems.clientHeight / 2 + getItemHeight(catItems[index]) / 2;
-        }
+      // 虚拟列表使用 requestAnimationFrame 延迟渲染
+      // 先设置滚动位置，让 updateVisibleItems 使用新的 scrollTop 渲染
+      var catItems = state[state.activeCategory] || [];
+      if (catItems.length > 50) {
+        var estPos = 0;
+        for (var pi = 0; pi < index; pi++) estPos += getItemHeight(catItems[pi]);
+        listItems.scrollTop = estPos - listItems.clientHeight / 2 + getItemHeight(catItems[index]) / 2;
       }
+
+      // 等待虚拟列表渲染完成后，查找激活项并滚动
+      requestAnimationFrame(function() {
+        var activeEl = listPanelEl.querySelector('.list-item.active');
+        if (activeEl) {
+          activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      });
 
       var items = state[state.activeCategory] || [];
       if (items[index]) renderDetail(items[index]);
@@ -2372,6 +2608,7 @@
   });
 
   var searchCommands = document.getElementById('searchCommands');
+  var searchHistory = document.getElementById('searchHistory');
   var searchModeTag = document.getElementById('searchModeTag');
   var commandActiveIdx = -1;
   var currentSearchMode = null;
@@ -2429,6 +2666,33 @@
     commandActiveIdx = -1;
   }
 
+  function showSearchHistory() {
+    if (!state.currentMd5) return;
+    var history = getSearchHistory();
+    if (history.length === 0) return;
+
+    var html = '<div class="search-history-header"><span>搜索记录</span>' +
+      '<button class="search-history-clear" id="searchHistoryClear">清除</button></div>';
+    history.forEach(function (h) {
+      var display = escapeHtml(h.query);
+      var modeMatch = h.query.match(/^\/(\w+)\s+(.*)$/);
+      if (modeMatch && searchModes[modeMatch[1]]) {
+        display = '<span class="history-mode">/' + modeMatch[1] + '</span> ' + escapeHtml(modeMatch[2]);
+      }
+      html += '<div class="search-history-item" data-query="' + escapeHtml(h.query) + '">' +
+        '<svg class="history-icon" width="12" height="12" viewBox="0 0 16 16" fill="none">' +
+        '<circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/>' +
+        '<path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>' +
+        '</svg><span class="history-text">' + display + '</span></div>';
+    });
+    searchHistory.innerHTML = html;
+    searchHistory.style.display = '';
+  }
+
+  function hideSearchHistory() {
+    searchHistory.style.display = 'none';
+  }
+
   var debouncedSearch = debounce(function () {
     var val = searchInput.value;
 
@@ -2461,10 +2725,18 @@
       state.searchQuery = val.trim();
     }
 
-    // 搜索为空时恢复到子程序分类
+    // 搜索为空时回退到上一个非搜索分类
     if (!state.searchQuery && state.activeCategory === 'search') {
-      state.activeCategory = 'subroutines';
-      setActiveNav('subroutines');
+      var prevCat = 'subroutines';
+      for (var ni = navHistory.length - 1; ni >= 0; ni--) {
+        var navEntry = navHistory[ni];
+        if (navEntry.category !== 'search' && navEntry.category !== 'about' && navEntry.category !== 'settings') {
+          prevCat = navEntry.category;
+          break;
+        }
+      }
+      state.activeCategory = prevCat;
+      setActiveNav(prevCat);
     }
 
     state.activeItem = null;
@@ -2478,11 +2750,50 @@
     // 指令模式：以 / 开头且没有空格，显示指令菜单，不执行搜索
     if (val === '/' || (val.length > 1 && val.charAt(0) === '/' && val.indexOf(' ') === -1)) {
       showSearchCommands(val.substring(1));
+      hideSearchHistory();
       state.searchQuery = '';
       return;
     }
 
     hideSearchCommands();
+    if (val.trim()) {
+      hideSearchHistory();
+    } else {
+      showSearchHistory();
+    }
+    debouncedSearch();
+  });
+
+  searchInput.addEventListener('focus', function () {
+    if (!searchInput.value.trim() && searchCommands.style.display === 'none') {
+      showSearchHistory();
+    }
+  });
+
+  searchInput.addEventListener('blur', function () {
+    setTimeout(hideSearchHistory, 200);
+  });
+
+  searchHistory.addEventListener('click', function (e) {
+    var clearBtn = e.target.closest('.search-history-clear');
+    if (clearBtn) {
+      clearSearchHistory();
+      hideSearchHistory();
+      return;
+    }
+    var item = e.target.closest('.search-history-item');
+    if (!item) return;
+    var query = item.dataset.query;
+    var modeMatch = query.match(/^\/(\w+)\s+(.*)$/);
+    if (modeMatch && searchModes[modeMatch[1]]) {
+      setSearchModeTag(modeMatch[1]);
+      searchInput.value = modeMatch[2];
+    } else {
+      clearSearchMode();
+      searchInput.value = query;
+    }
+    hideSearchHistory();
+    searchInput.focus();
     debouncedSearch();
   });
 
@@ -2524,6 +2835,14 @@
     // 退格清空输入时，如果有模式标签则也清除
     if (e.key === 'Backspace' && currentSearchMode && searchInput.value === '') {
       clearSearchMode();
+    }
+    // Enter 记录搜索词到历史
+    if (e.key === 'Enter' && (searchCommands.style.display === 'none' || visibleItems.length === 0)) {
+      var query = currentSearchMode ? '/' + currentSearchMode + ' ' + searchInput.value.trim() : searchInput.value.trim();
+      if (query) {
+        addSearchHistory(query);
+        hideSearchHistory();
+      }
     }
   });
 
@@ -2885,6 +3204,25 @@
   }
 
   function bindSettingsPageEvents() {
+    // 设置分类点击：滚动到对应设置项并闪烁
+    var settingsNavItems = listItems.querySelectorAll('[data-settings-section]');
+    settingsNavItems.forEach(function (item) {
+      item.addEventListener('click', function () {
+        var target = this.dataset.settingsSection;
+        settingsNavItems.forEach(function (n) { n.classList.remove('active'); });
+        this.classList.add('active');
+        var section = document.getElementById('settings-section-' + target);
+        if (section) {
+          var container = detailEmpty;
+          var offset = section.offsetTop - container.offsetTop - 18;
+          container.scrollTo({ top: offset, behavior: 'smooth' });
+          section.classList.remove('settings-flash');
+          void section.offsetWidth;
+          section.classList.add('settings-flash');
+        }
+      });
+    });
+
     // 主题切换
     var page = document.querySelector('.settings-page');
     if (!page) return;
@@ -2976,6 +3314,15 @@
     if (autoReloadEl) autoReloadEl.addEventListener('change', function () {
       appSettings.autoReload = this.checked;
       saveSettings(appSettings);
+    });
+
+    // 记住导航位置
+    var rememberNavStateEl = document.getElementById('sp_rememberNavState');
+    if (rememberNavStateEl) rememberNavStateEl.addEventListener('change', function () {
+      appSettings.rememberNavState = this.checked;
+      saveSettings(appSettings);
+      // 关闭时清除已保存的导航状态
+      if (!this.checked) clearNavState();
     });
 
     // 类型下划线
@@ -3357,6 +3704,12 @@
         }
       });
     }
+
+    // 防抖保存导航状态（滚动位置）
+    var debouncedSaveNavState = debounce(function () {
+      saveNavState();
+    }, 500);
+    listItems.addEventListener('scroll', debouncedSaveNavState);
 
     if (window.Tooltip) {
       Tooltip.init(document.getElementById('detailContent'));

@@ -23,6 +23,8 @@ pub const DT_EMPTY: i32 = 0;                          // 空白型
 pub const DT_BYTE: i32 = 0x80000101u32 as i32;        // 字节型
 pub const DT_SHORT: i32 = 0x80000201u32 as i32;       // 短整数
 pub const DT_INT: i32 = 0x80000301u32 as i32;         // 整数型
+pub const DT_INT_ALT: i32 = 1090644251;               // 整数型(文件中常见另一种编码)
+pub const DT_INT_ALT_2: i32 = 1090683027;             // 整数型(另一个DLL参数编码)
 pub const DT_LONG: i32 = 0x80000401u32 as i32;        // 长整数型
 pub const DT_FLOAT: i32 = 0x80000501u32 as i32;       // 小数型
 pub const DT_DOUBLE: i32 = 0x80000601u32 as i32;      // 双精度小数型
@@ -61,6 +63,63 @@ pub const CONST_ATTR_LONG_TEXT: i32 = 16;     // 长文本常量
 
 // RC4 block size for decryption
 pub const RC4_BLOCK_SIZE: usize = 4096;
+
+// krnln.fne (系统核心支持库, lib_index=1) built-in data types
+// 1-based index: type_index 1 = 窗口, 2 = 报表, ...
+pub const KRNLN_DATA_TYPES: &[&str] = &[
+    "",               // 0: placeholder (1-based indexing)
+    "窗口",           // 1
+    "报表",           // 2
+    "菜单",           // 3
+    "字体",           // 4
+    "编辑框",         // 5
+    "图片框",         // 6
+    "外形框",         // 7
+    "画板",           // 8
+    "分组框",         // 9
+    "标签",           // 10
+    "按钮",           // 11
+    "选择框",         // 12
+    "单选框",         // 13
+    "组合框",         // 14
+    "列表框",         // 15
+    "选择列表框",     // 16
+    "横向滚动条",     // 17
+    "纵向滚动条",     // 18
+    "进度条",         // 19
+    "滑块条",         // 20
+    "选择夹",         // 21
+    "影像框",         // 22
+    "日期框",         // 23
+    "月历",           // 24
+    "驱动器框",       // 25
+    "目录框",         // 26
+    "文件框",         // 27
+    "颜色选择器",     // 28
+    "超级链接框",     // 29
+    "调节器",         // 30
+    "通用对话框",     // 31
+    "时钟",           // 32
+    "打印机",         // 33
+    "字段信息",       // 34
+    "数据报",         // 35
+    "数据报",         // 36
+    "客户",           // 37
+    "服务器",         // 38
+    "端口",           // 39
+    "打印设置信息",   // 40
+    "表格",           // 41
+    "数据源",         // 42
+    "通用提供者",     // 43
+    "数据库提供者",   // 44
+    "图形按钮",       // 45
+    "外部数据库",     // 46
+    "外部数据提供者", // 47
+    "对象",           // 48
+    "变体型",         // 49
+    "变体类型",       // 50
+    "无法载入的窗口组件", // 51
+];
 
 // RC4 initial S-box constant (258 bytes: 256 S-box + 2 state bytes)
 // This is the exact S-box from the original E language code

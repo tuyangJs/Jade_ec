@@ -145,10 +145,13 @@
       return '.版本 2\n\n' + members.map(function (m) {
         var parts = ['.成员 ' + (m.name || '')];
         parts.push(m.dataType || '');
-        if (m.remark) {
-          parts.push('');
-          parts.push(m.remark);
+        parts.push(m.byRef ? '传址' : '');
+        var arrayStr = '';
+        if (m.isArray && m.arrayDims && m.arrayDims.length > 0) {
+          arrayStr = m.arrayDims.join(', ');
         }
+        parts.push('"' + arrayStr + '"');
+        parts.push(m.remark || '');
         return parts.join(', ');
       }).join('\n');
     },
@@ -213,9 +216,13 @@
       var memberStr = members.map(function (m) {
         var parts = ['    .成员 ' + (m.name || '')];
         parts.push(m.dataType || '');
-        parts.push('');
-        parts.push('"' + (m.remark || '') + '"');
-        parts.push('');
+        parts.push(m.byRef ? '传址' : '');
+        var arrayStr = '';
+        if (m.isArray && m.arrayDims && m.arrayDims.length > 0) {
+          arrayStr = m.arrayDims.join(', ');
+        }
+        parts.push('"' + arrayStr + '"');
+        parts.push(m.remark || '');
         return parts.join(', ');
       }).join('\n');
       return '.版本 2\n\n' + header + '\n' + memberStr;
@@ -224,9 +231,16 @@
     globalVars_decl: function (item) {
       var name = item.name || '';
       var dataType = item.dataType || '整数型';
-      var isArray = item.isArray ? String(item.isArray) : '';
+      var arrayStr = '';
+      if (item.isArray) {
+        if (item.arrayDims && item.arrayDims.length > 0) {
+          arrayStr = item.arrayDims.join(', ');
+        } else {
+          arrayStr = '数组';
+        }
+      }
       var remark = item.remark || '';
-      return '.版本 2\n\n.全局变量 ' + name + ', ' + dataType + ', ' + (isArray || '') + ', ' + (remark ? '"' + remark + '"' : '');
+      return '.版本 2\n\n.全局变量 ' + name + ', ' + dataType + ', ' + arrayStr + ', ' + (remark ? '"' + remark + '"' : '');
     },
 
     globalVars_varDecl: function (item) {

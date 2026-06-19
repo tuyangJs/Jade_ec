@@ -11,7 +11,7 @@
     "appDir": "D:\\nodejsApp\\Jade_ec\\dist",
     "mainExe": "Jade_ec.exe",
     "appName": "Jade EC查看器",
-    "appVersion": "1.2.1.0",
+    "appVersion": "1.3.3.0",
     "versionMode": "follow",
     "appId": "jade_ec.jade.run",
     "iconPath": "",
@@ -22,7 +22,7 @@
       "SimpChinese",
       "English"
     ],
-    "createDesktopShortcut": true,
+    "createDesktopShortcut": false,
     "excludeFiles": [],
     "compressionLevel": 3,
     "webview2": {
@@ -36,5 +36,5 @@
       }
     ]
   },
-  "updatedAt": "2026-06-18T12:22:54.360Z"
+  "updatedAt": "2026-06-19T07:35:43.549Z"
 }

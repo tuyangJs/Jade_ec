@@ -745,14 +745,14 @@ fn read_dll_variable_data(file: &mut BinaryReader) -> Result<Vec<Parameter>, Str
         file.skip(4).map_err(|e| e.message)?; // dwLength
         let data_type_raw = file.read_int().map_err(|e| e.message)?;
         let attr = file.read_short().map_err(|e| e.message)?;
-        file.skip(1).map_err(|e| e.message)?; // array dims
+        file.skip(1).map_err(|e| e.message)?; // array dims (DLL params don't have array bounds)
         let name = file.read_normal_string().map_err(|e| e.message)?;
         let description = file.read_normal_string().map_err(|e| e.message)?;
 
         params.push(Parameter {
             name,
             description,
-            data_type: String::new(), // Will be resolved
+            data_type: String::new(), // resolved in post_process
             is_by_ref: attr as i32 & VAR_ATTR_BY_REF != 0,
             is_array: attr as i32 & VAR_ATTR_ARRAY != 0,
             array_dims: Vec::new(),
@@ -896,37 +896,50 @@ fn post_process(
 }
 
 fn get_data_type_name(type_value: i32, dt_map: &HashMap<i32, &str>, asm_map: &HashMap<i32, &str>) -> String {
+    // First try exact match against built-in types
     match type_value {
-        DT_EMPTY => String::new(),
-        DT_BYTE => "字节型".to_string(),
-        DT_SHORT => "短整数".to_string(),
-        DT_INT => "整数型".to_string(),
-        DT_LONG => "长整数型".to_string(),
-        DT_FLOAT => "小数型".to_string(),
-        DT_DOUBLE => "双精度小数".to_string(),
-        DT_BOOL => "逻辑型".to_string(),
-        DT_DATE => "日期时间型".to_string(),
-        DT_STRING => "文本型".to_string(),
-        DT_BIN => "字节集".to_string(),
-        DT_SUB_PTR => "子程序指针".to_string(),
-        DT_GENERIC => "通用型".to_string(),
-        -1 => String::new(),
-        _ => {
-            if let Some(name) = dt_map.get(&type_value) {
-                return name.to_string();
-            }
-            if let Some(name) = asm_map.get(&type_value) {
-                return name.to_string();
-            }
-            let lib_index = (type_value as u32 >> 16) as i32;
-            if lib_index > 0 {
-                let type_index = (type_value as u32 & 0xFFFF) as i32;
-                format!("支持库类型[{}:{}]", lib_index, type_index)
-            } else {
-                format!("未知类型({})", type_value)
+        DT_EMPTY => return String::new(),
+        DT_BYTE => return "字节型".to_string(),
+        DT_SHORT => return "短整数".to_string(),
+        DT_INT | DT_INT_ALT | DT_INT_ALT_2 => return "整数型".to_string(),
+        DT_LONG => return "长整数型".to_string(),
+        DT_FLOAT => return "小数型".to_string(),
+        DT_DOUBLE => return "双精度小数".to_string(),
+        DT_BOOL => return "逻辑型".to_string(),
+        DT_DATE => return "日期时间型".to_string(),
+        DT_STRING => return "文本型".to_string(),
+        DT_BIN => return "字节集".to_string(),
+        DT_SUB_PTR => return "子程序指针".to_string(),
+        DT_GENERIC => return "通用型".to_string(),
+        -1 => return String::new(),
+        _ => {}
+    }
+
+    // Try custom data types
+    if let Some(name) = dt_map.get(&type_value) {
+        return name.to_string();
+    }
+
+    // Try assemblies
+    if let Some(name) = asm_map.get(&type_value) {
+        return name.to_string();
+    }
+
+    // Support library type reference
+    let lib_index = (type_value as u32 >> 16) as i32;
+    if lib_index > 0 {
+        let type_index = (type_value as u32 & 0xFFFF) as usize;
+        // krnln.fne (lib_index=1) has a hardcoded type table
+        if lib_index == 1 && type_index < KRNLN_DATA_TYPES.len() {
+            let type_name = KRNLN_DATA_TYPES[type_index];
+            if !type_name.is_empty() {
+                return type_name.to_string();
             }
         }
+        return format!("支持库类型[{}:{}]", lib_index, type_index);
     }
+
+    String::new()
 }
 
 fn convert_parameters(vars: &[ProgramVariable], dt_map: &HashMap<i32, &str>, asm_map: &HashMap<i32, &str>) -> Vec<Parameter> {

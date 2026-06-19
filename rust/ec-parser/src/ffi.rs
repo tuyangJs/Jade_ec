@@ -2,6 +2,7 @@ use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int};
 use std::panic::catch_unwind;
 use std::fs;
+use md5::{Md5, Digest};
 use crate::parser;
 use crate::crypto;
 
@@ -128,5 +129,22 @@ pub extern "system" fn parse_ec_to_json(path: *const c_char, password: *const c_
 pub extern "system" fn free_ec_string(s: *mut c_char) {
     if !s.is_null() {
         unsafe { drop(CString::from_raw(s)); }
+    }
+}
+
+/// Compute MD5 hash of a file
+/// path: null-terminated file path string
+/// Returns hex MD5 string. Caller must free with free_ec_string.
+#[unsafe(no_mangle)]
+pub extern "system" fn get_file_md5(path: *const c_char) -> *mut c_char {
+    match read_file(path) {
+        Ok(data) => {
+            let mut hasher = Md5::new();
+            hasher.update(&data);
+            let result = hasher.finalize();
+            let hex = format!("{:x}", result);
+            CString::new(hex).unwrap_or_else(|_| CString::new("").unwrap()).into_raw()
+        }
+        Err(_) => CString::new("").unwrap().into_raw(),
     }
 }
