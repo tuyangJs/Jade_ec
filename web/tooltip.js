@@ -64,7 +64,6 @@
     // 显示时启用 pointer-events，允许鼠标移入 tooltip
     tooltipEl.style.pointerEvents = 'auto';
 
-    var rect = target.getBoundingClientRect();
     var titleText = target.getAttribute('title') || target.getAttribute('data-tooltip-title');
     var text = titleText || (target.textContent || '');
 
@@ -92,21 +91,46 @@
     var wasVisible = isVisible;
     currentTarget = target;
 
+    var geo = computeGeometry(target);
+    var left = geo.left, top = geo.top;
+
+    if (wasVisible) {
+      // 已显示 → 平移动画
+      tooltipEl.style.transition = 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1), top 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease';
+      tooltipEl.style.left = left + 'px';
+      tooltipEl.style.top = top + 'px';
+      tooltipEl.classList.add('tooltip-visible');
+    } else {
+      // 首次显示 → 淡入
+      tooltipEl.style.transition = 'opacity 0.15s ease';
+      tooltipEl.style.left = left + 'px';
+      tooltipEl.style.top = top + 'px';
+      tooltipEl.style.opacity = '0';
+      tooltipEl.classList.add('tooltip-visible');
+
+      // 强制重排后淡入
+      void tooltipEl.offsetHeight;
+      tooltipEl.style.opacity = '1';
+    }
+
+    isVisible = true;
+  }
+
+  // 计算 tooltip 相对当前视口的位置（依据目标元素的实时 rect），返回 {left, top}
+  function computeGeometry(target) {
+    var rect = target.getBoundingClientRect();
+
     // 判断是否在侧边栏内，显示在右侧
     var inSidebar = target.closest('.sidebar') !== null;
-    var inDetail = target.closest('.detail-content') !== null;
     var placement = target.getAttribute('data-tooltip-placement') || (inSidebar ? 'right' : 'bottom');
 
-    // 计算位置
-    var tooltipRect = tooltipEl.getBoundingClientRect();
     var vh = window.innerHeight;
     var vw = window.innerWidth;
 
-    // 先设置宽度让浏览器计算
+    // 先设置为 nowrap 让浏览器计算实际尺寸
     tooltipEl.style.whiteSpace = 'nowrap';
     tooltipEl.style.maxWidth = '';
 
-    // 获取实际尺寸
     var tw = tooltipEl.offsetWidth;
     var th = tooltipEl.offsetHeight;
     var left, top;
@@ -164,25 +188,46 @@
       tooltipEl.classList.remove('tooltip-right');
     }
 
-    if (wasVisible) {
-      // 已显示 → 平移动画
-      tooltipEl.style.transition = 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1), top 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease';
-      tooltipEl.style.left = left + 'px';
-      tooltipEl.style.top = top + 'px';
-    } else {
-      // 首次显示 → 淡入
-      tooltipEl.style.transition = 'opacity 0.15s ease';
-      tooltipEl.style.left = left + 'px';
-      tooltipEl.style.top = top + 'px';
-      tooltipEl.style.opacity = '0';
+    return { left: left, top: top };
+  }
+
+  // 立即隐藏（目标已滚出视口或从 DOM 移除时使用，不走延时）
+  function hideNow() {
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    tooltipEl.style.transition = 'none';
+    tooltipEl.style.opacity = '0';
+    tooltipEl.style.pointerEvents = 'none';
+    tooltipEl.classList.remove('tooltip-visible');
+    isVisible = false;
+    restoreTitle(currentTarget);
+    currentTarget = null;
+  }
+
+  // 滚动时让 tooltip 跟随目标元素（rAF 节流）
+  var repositionRaf = null;
+  function onViewportChange() {
+    if (!isVisible || !currentTarget || repositionRaf) return;
+    repositionRaf = requestAnimationFrame(function () {
+      repositionRaf = null;
+      if (!isVisible || !currentTarget) return;
+      // 目标已从 DOM 移除（如列表重渲染）→ 隐藏
+      if (!currentTarget.isConnected) { hideNow(); return; }
+      var rect = currentTarget.getBoundingClientRect();
+      // 目标完全移出视口 → 隐藏
+      if (rect.bottom <= 0 || rect.top >= window.innerHeight ||
+          rect.right <= 0 || rect.left >= window.innerWidth) {
+        hideNow();
+        return;
+      }
+      var geo = computeGeometry(currentTarget);
+      // 跟随时不要动画，直接贴合
+      tooltipEl.style.transition = 'none';
+      tooltipEl.style.left = geo.left + 'px';
+      tooltipEl.style.top = geo.top + 'px';
+      // computeGeometry 的测高分支可能临时移除可见性，这里确保仍可见
       tooltipEl.classList.add('tooltip-visible');
-
-      // 强制重排后淡入
-      void tooltipEl.offsetHeight;
       tooltipEl.style.opacity = '1';
-    }
-
-    isVisible = true;
+    });
   }
 
   function hide() {
@@ -246,6 +291,9 @@
     // 全局拦截：主动移除所有 title 属性，阻止原生 tooltip
     if (!nativeIntercepted) {
       nativeIntercepted = true;
+      // 滚动/缩放时让 tooltip 跟随目标（capture=true 以捕获内部滚动容器的滚动）
+      window.addEventListener('scroll', onViewportChange, true);
+      window.addEventListener('resize', onViewportChange);
       // 立即移除页面中已有的 title
       document.querySelectorAll('[title]').forEach(function (el) {
         el.setAttribute('data-tooltip-title', el.getAttribute('title'));

@@ -788,7 +788,8 @@ body.material-acrylic .titlebar {
 .detail-content::-webkit-scrollbar,
 .sidebar-nav::-webkit-scrollbar,
 .detail-empty::-webkit-scrollbar,
-.welcome-recent::-webkit-scrollbar {
+.welcome-recent::-webkit-scrollbar,
+.palette-results::-webkit-scrollbar {
   width: 6px;
 }
 
@@ -796,7 +797,8 @@ body.material-acrylic .titlebar {
 .detail-content::-webkit-scrollbar-track,
 .sidebar-nav::-webkit-scrollbar-track,
 .detail-empty::-webkit-scrollbar-track,
-.welcome-recent::-webkit-scrollbar-track {
+.welcome-recent::-webkit-scrollbar-track,
+.palette-results::-webkit-scrollbar-track {
   background: transparent;
 }
 
@@ -804,7 +806,8 @@ body.material-acrylic .titlebar {
 .detail-content::-webkit-scrollbar-thumb,
 .sidebar-nav::-webkit-scrollbar-thumb,
 .detail-empty::-webkit-scrollbar-thumb,
-.welcome-recent::-webkit-scrollbar-thumb {
+.welcome-recent::-webkit-scrollbar-thumb,
+.palette-results::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.12);
   border-radius: 3px;
 }
@@ -815,7 +818,8 @@ body.material-acrylic .titlebar {
   .detail-content::-webkit-scrollbar-thumb,
   .sidebar-nav::-webkit-scrollbar-thumb,
   .detail-empty::-webkit-scrollbar-thumb,
-  .welcome-recent::-webkit-scrollbar-thumb {
+  .welcome-recent::-webkit-scrollbar-thumb,
+  .palette-results::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.12);
   }
 }
@@ -922,7 +926,21 @@ body.material-acrylic .titlebar {
 
 /* --- Class Tree --- */
 .tree-group { margin-bottom: 2px; }
-.tree-parent { gap: 4px; }
+.tree-parent {
+  gap: 4px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+/* 展开后向下滚动、父级被滚出视窗时吸顶固定 */
+.tree-parent.is-stuck:not(.active) {
+  background: var(--surface-elevated);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+}
+.tree-parent.is-stuck {
+  box-shadow: 0 6px 12px -8px rgba(0, 0, 0, 0.18);
+}
 
 .tree-arrow {
   flex-shrink: 0;
@@ -1611,6 +1629,168 @@ body.material-acrylic .titlebar {
 body.hide-type-underline .type-link,
 body.hide-type-underline .type-hint {
   border-bottom: none;
+}
+
+/* 被引用（类型反向交叉引用） */
+.type-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.type-ref-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  transition: var(--transition-fast);
+}
+.type-ref-item:hover {
+  background: var(--surface-active);
+}
+.type-ref-cat {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(0, 122, 255, 0.1);
+  color: var(--color-primary);
+}
+.type-ref-name {
+  white-space: nowrap;
+}
+
+/* 收藏星标按钮（详情头部） */
+.fav-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-tertiary);
+  background: transparent;
+  transition: var(--transition-fast);
+}
+.fav-toggle-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+.fav-toggle-btn.active {
+  color: #F5A623;
+}
+.fav-toggle-btn.active svg path {
+  fill: currentColor;
+}
+
+/* 命令面板（Ctrl+P） */
+.palette-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+}
+.palette {
+  width: 560px;
+  max-width: 90vw;
+  max-height: 62vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-base);
+  border: var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 16px 56px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.palette-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 14px 16px;
+  font-size: 15px;
+  color: var(--text-primary);
+  border-bottom: var(--border-divider);
+  font-family: inherit;
+}
+.palette-results {
+  overflow-y: auto;
+  padding: 6px;
+  flex: 1;
+}
+.palette-group-title {
+  padding: 6px 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+.palette-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.palette-item.active,
+.palette-item:hover {
+  background: var(--surface-hover);
+}
+.palette-cat {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(0, 122, 255, 0.1);
+  color: var(--color-primary);
+  min-width: 56px;
+  text-align: center;
+}
+.palette-name {
+  color: var(--text-primary);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.palette-sub {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  margin-left: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.palette-footer {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border-top: var(--border-divider);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.palette-footer kbd {
+  font-family: inherit;
+  background: var(--surface-hover);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin: 0 1px;
 }
 .detail-table .method-row { cursor: pointer; }
 .detail-table .method-row:hover { background: var(--surface-hover); }

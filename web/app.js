@@ -31,7 +31,8 @@
     showTypeUnderline: true,
     showTypeTooltip: true,
     showListDivider: false,
-    rememberNavState: true
+    rememberNavState: true,
+    recordSearchHistory: true
   };
 
   var isWindows11 = false;
@@ -140,6 +141,51 @@
 
   function ensureTypeMaps() {
     if (typeMapsDirty || !classNameMap) buildTypeMaps();
+  }
+
+  // --- 类型反向引用索引：类型名 -> 引用它的条目列表（去重到可跳转目标级） ---
+  var typeRefMap = null;
+  var typeRefDirty = false;
+
+  function buildTypeRefMap() {
+    typeRefMap = new Map();
+    function add(typeName, category, index) {
+      if (!typeName || typeName === '-') return;
+      var key = String(typeName);
+      var arr = typeRefMap.get(key);
+      if (!arr) { arr = []; typeRefMap.set(key, arr); }
+      // 同一跳转目标只记一次（一个子程序即便多个参数用到同一类型也只列一条）
+      for (var i = 0; i < arr.length; i++) {
+        if (arr[i].category === category && arr[i].index === index) return;
+      }
+      arr.push({ category: category, index: index });
+    }
+    state.subroutines.forEach(function (sr, i) {
+      add(sr.returnType, 'subroutines', i);
+      (sr.params || []).forEach(function (p) { add(p.dataType, 'subroutines', i); });
+    });
+    state.dllCommands.forEach(function (cmd, i) {
+      add(cmd.returnType, 'dllCommands', i);
+      (cmd.params || []).forEach(function (p) { add(p.dataType, 'dllCommands', i); });
+    });
+    state.classes.forEach(function (cls, i) {
+      add(cls.baseClass, 'classes', i);
+      (cls.methods || []).forEach(function (m) {
+        add(m.returnType, 'classes', i);
+        (m.params || []).forEach(function (p) { add(p.dataType, 'classes', i); });
+      });
+    });
+    state.dataTypes.forEach(function (dt, i) {
+      (dt.members || []).forEach(function (mem) { add(mem.dataType, 'dataTypes', i); });
+    });
+    state.globalVars.forEach(function (gv, i) {
+      add(gv.dataType, 'globalVars', i);
+    });
+    typeRefDirty = false;
+  }
+
+  function ensureTypeRefMap() {
+    if (typeRefDirty || !typeRefMap) buildTypeRefMap();
   }
 
   // --- Navigation History ---
@@ -264,6 +310,7 @@
   var ICON_COPY = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M3 11V3a1.5 1.5 0 011.5-1.5H11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
   var ICON_COPY_SM = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M3 11V3a1.5 1.5 0 011.5-1.5H11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
   var ICON_FOLDER = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 4v9h12V6H8L6 4H2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+  var ICON_STAR = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 1.6l1.83 3.71 4.09.59-2.96 2.89.7 4.08L8 10.94 4.34 12.86l.7-4.08L2.08 5.9l4.09-.59z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
 
   var categories = {
     subroutines: { title: '子程序', icon: '<svg width="12" height="12" viewBox="0 0 1024 1024" fill="none"><path d="M512 64C262.4 64 64 262.4 64 512c6.4 19.2 12.8 32 32 32s32-12.8 38.4-32c0-211.2 172.8-377.6 377.6-377.6 211.2 0 377.6 172.8 377.6 377.6s-172.8 377.6-377.6 377.6c-38.4 0-76.8-6.4-115.2-19.2-25.6-6.4-44.8-19.2-70.4-32l44.8-268.8h230.4c19.2 0 38.4-19.2 38.4-38.4s-12.8-38.4-38.4-38.4H384l25.6-134.4h236.8c25.6 0 38.4-19.2 38.4-38.4 0-25.6-19.2-38.4-38.4-38.4H345.6l-108.8 595.2c38.4 32 89.6 51.2 134.4 64 44.8 12.8 89.6 19.2 134.4 19.2 249.6 0 448-198.4 448-448 6.4-249.6-192-448-441.6-448z" fill="currentColor"/></svg>' },
@@ -461,6 +508,7 @@
   }
 
   function addSearchHistory(query) {
+    if (!appSettings.recordSearchHistory) return;
     if (!state.currentMd5 || !query) return;
     // 去重并移到顶部
     var list = getSearchHistory().filter(function (h) { return h.query !== query; });
@@ -967,6 +1015,8 @@
         if (catIndex >= catKeys.length) {
           // All done
           typeMapsDirty = true;
+          typeRefDirty = true;
+          symbolIndexDirty = true;
           renderList();
           renderDetail(null);
           updateNavButtons();
@@ -1319,6 +1369,7 @@
     });
     listItems.innerHTML = html;
     listItems.scrollTop = savedScrollTop;
+    updateTreeStuck();
   }
 
   function renderConstantTreeList(items) {
@@ -1361,6 +1412,27 @@
     });
     listItems.innerHTML = html;
     listItems.scrollTop = savedScrollTop;
+    updateTreeStuck();
+  }
+
+  // 树模式：滚动时判断展开的父级是否被滚出视窗，是则吸顶（加 is-stuck 背景）
+  var treeStuckRaf = null;
+  function updateTreeStuck() {
+    if (treeStuckRaf) return;
+    treeStuckRaf = requestAnimationFrame(function () {
+      treeStuckRaf = null;
+      var parents = listItems.querySelectorAll('.tree-parent');
+      if (!parents.length) return;
+      var containerTop = listItems.getBoundingClientRect().top;
+      for (var i = 0; i < parents.length; i++) {
+        var p = parents[i];
+        var groupRect = p.parentElement.getBoundingClientRect(); // .tree-group
+        // 组的自然顶部已滚到容器顶之上，且组底部仍在头部下方（说明展开且有内容可滚动）
+        var stuck = (groupRect.top - containerTop) < -0.5 &&
+                    (groupRect.bottom - containerTop) > p.offsetHeight + 0.5;
+        p.classList.toggle('is-stuck', stuck);
+      }
+    });
   }
 
   // --- Virtual List ---
@@ -1532,12 +1604,24 @@
       '</div>' +
       // 导航相关
       '<div class="about-tip-item">' +
+      '<div class="about-tip-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="2.5" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 6l2 2-2 2M9 10h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
+      '<div class="about-tip-text">按 <kbd class="about-kbd">Ctrl</kbd>+<kbd class="about-kbd">P</kbd> 打开命令面板，跨所有分类（含类中方法）快速跳转；未输入时显示收藏夹</div>' +
+      '</div>' +
+      '<div class="about-tip-item">' +
+      '<div class="about-tip-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M5 6l3-3 3 3M5 10l3 3 3-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
+      '<div class="about-tip-text"><kbd class="about-kbd">Ctrl</kbd>+<kbd class="about-kbd">F</kbd> 聚焦搜索；列表中用 <kbd class="about-kbd">↑</kbd> <kbd class="about-kbd">↓</kbd> 上下选择，搜索结果按 <kbd class="about-kbd">Enter</kbd> 跳转</div>' +
+      '</div>' +
+      '<div class="about-tip-item">' +
+      '<div class="about-tip-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2l1.7 3.45 3.8.55-2.75 2.68.65 3.8L8 11.1 4.6 12.48l.65-3.8L2.5 6.45l3.8-.55z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg></div>' +
+      '<div class="about-tip-text">详情页标题旁点击 ☆ 收藏常用项，收藏会出现在命令面板（<kbd class="about-kbd">Ctrl</kbd>+<kbd class="about-kbd">P</kbd>）顶部</div>' +
+      '</div>' +
+      '<div class="about-tip-item">' +
       '<div class="about-tip-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11 3H5a2 2 0 00-2 2v6a2 2 0 002 2h6a2 2 0 002-2V5a2 2 0 00-2-2z" stroke="currentColor" stroke-width="1.2"/><path d="M6 7h4M6 9h2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></div>' +
       '<div class="about-tip-text">使用 <kbd class="about-kbd">Alt</kbd>+<kbd class="about-kbd">←</kbd> 和 <kbd class="about-kbd">Alt</kbd>+<kbd class="about-kbd">→</kbd> 前进后退导航历史</div>' +
       '</div>' +
       '<div class="about-tip-item">' +
       '<div class="about-tip-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
-      '<div class="about-tip-text">点击详情中的类型链接可跳转到对应类型定义</div>' +
+      '<div class="about-tip-text">点击详情中的类型链接可跳转到类型定义；类 / 数据类型详情底部的「被引用」可反向查看哪些条目用到它</div>' +
       '</div>' +
       // 复制相关
       '<div class="about-tip-item">' +
@@ -1685,7 +1769,11 @@
       '<div class="search-command-item' + (appSettings.defaultSearch === 'remark' ? ' active' : '') + '" data-command="remark"><span class="cmd-prefix">/remark</span><span class="cmd-desc">搜索备注</span></div>' +
       '<div class="search-command-item' + (appSettings.defaultSearch === 'method' ? ' active' : '') + '" data-command="method"><span class="cmd-prefix">/method</span><span class="cmd-desc">搜索类中的方法名</span></div>' +
       '<div class="search-command-item' + (appSettings.defaultSearch === 'param' ? ' active' : '') + '" data-command="param"><span class="cmd-prefix">/param</span><span class="cmd-desc">搜索参数名</span></div>' +
-      '</div></div></div></div>' +
+      '</div></div></div>' +
+      '<div class="settings-item">' +
+      '<div class="settings-item-info"><div class="settings-item-label">记录搜索历史</div><div class="settings-item-desc">在搜索框记录并显示最近的搜索内容</div></div>' +
+      '<label class="settings-toggle"><input type="checkbox" id="sp_recordSearchHistory"' + (appSettings.recordSearchHistory ? ' checked' : '') + '><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
+      '</div></div>' +
 
       // 文件
       '<div class="settings-section" id="settings-section-file">' +
@@ -1755,6 +1843,9 @@
       '<div class="detail-title">' + escapeHtml(name) + '</div>' +
       '<button class="copy-title-btn" data-copy-text="' + escapeHtml(name) + '" title="复制标题">' +
       ICON_COPY + '</button>' +
+      (FAV_CATEGORIES[state.activeCategory] ?
+        '<button class="fav-toggle-btn' + (isFavorite(state.activeCategory, name) ? ' active' : '') + '" data-fav-category="' + escapeHtml(state.activeCategory) + '" data-fav-name="' + escapeHtml(name) + '" title="收藏（命令面板 Ctrl+P 可快速跳转收藏项）">' +
+        ICON_STAR + '</button>' : '') +
       (showCopyBtns ?
         '<div class="detail-actions">' +
         '<button class="copy-code-btn" data-lang="e" data-type="params" title="复制参数声明">' +
@@ -1825,6 +1916,13 @@
     if (methodRowToggleBound) return;
     methodRowToggleBound = true;
     detailContent.addEventListener('click', function (e) {
+      // 收藏星标切换
+      var favBtn = e.target.closest('.fav-toggle-btn');
+      if (favBtn) {
+        var nowFav = toggleFavorite(favBtn.dataset.favCategory, favBtn.dataset.favName);
+        favBtn.classList.toggle('active', nowFav);
+        return;
+      }
       // 复制代码按钮
       var copyBtn = e.target.closest('.copy-code-btn');
       if (copyBtn) {
@@ -1868,6 +1966,15 @@
         var cat = typeLink.dataset.targetCategory;
         var idx = parseInt(typeLink.dataset.targetIndex, 10);
         if (cat && !isNaN(idx)) navigateToType(cat, idx);
+        return;
+      }
+      // 「被引用」条目跳转
+      var refItem = e.target.closest('.type-ref-item');
+      if (refItem) {
+        e.preventDefault();
+        var refCat = refItem.dataset.targetCategory;
+        var refIdx = parseInt(refItem.dataset.targetIndex, 10);
+        if (refCat && !isNaN(refIdx)) navigateToType(refCat, refIdx);
         return;
       }
       // 方法行展开/收起
@@ -2057,6 +2164,7 @@
       html += renderMethodTable('子程序名', m.name, m.returnType, m.remark, m.params || [], '参考');
     });
 
+    html += renderTypeReferences(item.name);
     return html;
   }
 
@@ -2074,6 +2182,7 @@
         renderParamTable(members, true, false) + '</div>';
     }
 
+    html += renderTypeReferences(item.name);
     return html;
   }
 
@@ -2284,32 +2393,337 @@
     return '<span class="type-hint"' + titleAttr + '>' + escapeHtml(name) + '</span>';
   }
 
+  var TYPE_REF_CAT_LABEL = {
+    subroutines: '子程序',
+    dllCommands: 'DLL 命令',
+    classes: '类',
+    dataTypes: '数据类型',
+    globalVars: '全局变量'
+  };
+
+  // 渲染「被引用」区块：列出把 typeName 用作参数/返回值/基类/成员类型的条目，可点击跳转
+  function renderTypeReferences(typeName) {
+    if (!typeName) return '';
+    ensureTypeRefMap();
+    var refs = typeRefMap.get(String(typeName));
+    if (!refs || !refs.length) return '';
+    var html = '<div class="detail-section">' +
+      '<div class="detail-section-title">被引用 (' + refs.length + ')</div>' +
+      '<div class="type-refs">';
+    refs.forEach(function (r) {
+      var items = state[r.category] || [];
+      var target = items[r.index];
+      if (!target) return;
+      var catLabel = TYPE_REF_CAT_LABEL[r.category] || r.category;
+      html += '<a class="type-ref-item" data-target-category="' + r.category + '" data-target-index="' + r.index + '">' +
+        '<span class="type-ref-cat">' + escapeHtml(catLabel) + '</span>' +
+        '<span class="type-ref-name">' + escapeHtml(String(target.name || '')) + '</span>' +
+        '</a>';
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  // 跳转到指定分类的某一项：切换导航 + 显示并定位侧边栏列表 + 渲染详情
+  // （命令面板、类型链接、被引用 均走此函数，体验与搜索结果双击一致）
   function navigateToType(category, index) {
-    pushNav(category, index, state.searchQuery);
-    // 切换分类
-    state.activeCategory = category;
-    state.activeItem = index;
+    var items = state[category] || [];
+    if (!items[index]) return;
+
+    // 保存当前分类的滚动与激活项，便于返回时恢复
+    if (state.activeCategory && state.activeCategory !== 'search') {
+      categoryScrollPositions[state.activeCategory] = listItems.scrollTop;
+      categoryActiveItems[state.activeCategory] = state.activeItem;
+    }
+
+    // 清理搜索态
     state.searchQuery = '';
     searchInput.value = '';
-    // 更新侧边栏
+    if (currentSearchMode) setSearchModeTag(null);
+    state.previewItem = null;
+    state.previewCategory = null;
+
+    // 切换分类并记录导航历史
+    state.activeCategory = category;
+    state.activeItem = index;
+    categoryActiveItems[category] = index;
+    pushNav(category, index, '');
+
+    // 更新左侧导航高亮 + 确保列表面板可见
     setActiveNav(category);
+    listPanelEl.style.display = '';
+    listResize.style.display = '';
+
     renderList();
-    var items = state[category] || [];
-    if (items[index]) renderDetail(items[index]);
-    // 滚动二级侧边栏到激活项
-    var activeItem = listPanelEl.querySelector('.list-item.active');
-    if (activeItem) {
-      activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    } else if (items.length > 50) {
-      // 虚拟列表：使用缓存的 positions 数组或估算滚动位置
+
+    // 虚拟列表（扁平且超阈值）：先按估算位置滚动，促使 updateVisibleItems 渲染出激活项
+    var isFlat = category !== 'classes' && category !== 'constants';
+    if (isFlat && items.length > 50) {
+      var estPos;
       if (currentPositions && currentPositions.length > index) {
-        listItems.scrollTop = currentPositions[index] - listItems.clientHeight / 2 + getItemHeight(items[index]) / 2;
+        estPos = currentPositions[index];
       } else {
-        var estPos = 0;
+        estPos = 0;
         for (var pi = 0; pi < index; pi++) estPos += getItemHeight(items[pi]);
-        listItems.scrollTop = estPos - listItems.clientHeight / 2 + getItemHeight(items[index]) / 2;
       }
+      listItems.scrollTop = estPos - listItems.clientHeight / 2 + getItemHeight(items[index]) / 2;
     }
+
+    // 渲染完成后再把激活项平滑滚入视图（虚拟列表此时才渲染出该项）
+    requestAnimationFrame(function () {
+      var activeEl = listPanelEl.querySelector('.list-item.active');
+      if (activeEl) activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+
+    renderDetail(items[index]);
+    saveNavState();
+  }
+
+  // ===================== 命令面板（Ctrl+P）与收藏夹 =====================
+
+  // --- 收藏：按文件 MD5 存储 {category, name} ---
+  var FAV_CATEGORIES = { subroutines: 1, dllCommands: 1, classes: 1, dataTypes: 1, globalVars: 1, constants: 1 };
+  function getFavKey() { return 'favorites_' + state.currentMd5; }
+  function getFavorites() {
+    if (!state.currentMd5) return [];
+    try { return JSON.parse(localStorage.getItem(getFavKey()) || '[]'); } catch (e) { return []; }
+  }
+  function saveFavorites(list) {
+    if (!state.currentMd5) return;
+    try { localStorage.setItem(getFavKey(), JSON.stringify(list)); } catch (e) {}
+  }
+  function isFavorite(category, name) {
+    return getFavorites().some(function (f) { return f.category === category && f.name === name; });
+  }
+  function toggleFavorite(category, name) {
+    if (!state.currentMd5 || !name) return false;
+    var list = getFavorites();
+    var idx = -1;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].category === category && list[i].name === name) { idx = i; break; }
+    }
+    var nowFav;
+    if (idx >= 0) { list.splice(idx, 1); nowFav = false; }
+    else { list.unshift({ category: category, name: name }); nowFav = true; }
+    saveFavorites(list);
+    return nowFav;
+  }
+  // 收藏项解析为可跳转条目（按名称定位当前索引，避免索引漂移）
+  function getFavoriteEntries() {
+    var entries = [];
+    getFavorites().forEach(function (f) {
+      var items = state[f.category] || [];
+      var idx = -1;
+      for (var i = 0; i < items.length; i++) {
+        if (String(items[i].name || '') === f.name) { idx = i; break; }
+      }
+      if (idx >= 0) entries.push({ category: f.category, index: idx, name: f.name, sub: '', fav: true });
+    });
+    return entries;
+  }
+
+  // --- 全局符号索引（命令面板模糊跳转） ---
+  var symbolIndex = null;
+  var symbolIndexDirty = false;
+  var PALETTE_CATS = ['subroutines', 'dllCommands', 'classes', 'dataTypes', 'globalVars', 'constants'];
+  var PALETTE_CAT_LABEL = { subroutines: '子程序', dllCommands: 'DLL 命令', classes: '类', dataTypes: '数据类型', globalVars: '全局变量', constants: '常量' };
+  function buildSymbolIndex() {
+    symbolIndex = [];
+    PALETTE_CATS.forEach(function (cat) {
+      (state[cat] || []).forEach(function (it, i) {
+        var nm = String(it.name || '');
+        symbolIndex.push({ category: cat, index: i, name: nm, nameLower: nm.toLowerCase(), sub: '' });
+        // 类的方法也加入索引（跳转到所属类）
+        if (cat === 'classes') {
+          (it.methods || []).forEach(function (m) {
+            var mn = String(m.name || '');
+            if (mn) symbolIndex.push({ category: 'classes', index: i, name: mn, nameLower: mn.toLowerCase(), sub: nm });
+          });
+        }
+      });
+    });
+    symbolIndexDirty = false;
+  }
+  function ensureSymbolIndex() { if (symbolIndexDirty || !symbolIndex) buildSymbolIndex(); }
+
+  function fuzzyScore(nameLower, q) {
+    if (!q) return 0;
+    var idx = nameLower.indexOf(q);
+    if (idx === 0) return 1000 - nameLower.length * 0.1;        // 前缀匹配最高
+    if (idx > 0) return 600 - idx - nameLower.length * 0.1;     // 子串匹配
+    var qi = 0;                                                 // 子序列匹配兜底
+    for (var i = 0; i < nameLower.length && qi < q.length; i++) {
+      if (nameLower.charAt(i) === q.charAt(qi)) qi++;
+    }
+    if (qi === q.length) return 200 - nameLower.length * 0.1;
+    return -1;
+  }
+
+  function paletteQuery(query) {
+    var q = (query || '').trim().toLowerCase();
+    if (!q) return getFavoriteEntries();   // 空查询 -> 收藏夹
+    ensureSymbolIndex();
+    var scored = [];
+    for (var i = 0; i < symbolIndex.length; i++) {
+      var sc = fuzzyScore(symbolIndex[i].nameLower, q);
+      if (sc >= 0) scored.push({ e: symbolIndex[i], s: sc });
+    }
+    scored.sort(function (a, b) { return b.s - a.s; });
+    var out = [];
+    for (var j = 0; j < scored.length && j < 100; j++) out.push(scored[j].e);
+    return out;
+  }
+
+  // --- 命令面板 UI ---
+  var paletteOverlay = document.getElementById('paletteOverlay');
+  var paletteInput = document.getElementById('paletteInput');
+  var paletteResults = document.getElementById('paletteResults');
+  var paletteEntries = [];
+  var paletteActive = -1;
+
+  function renderPalette() {
+    var typing = !!paletteInput.value.trim();
+    if (!paletteEntries.length) {
+      paletteResults.innerHTML = '<div class="palette-empty">' +
+        (typing ? '无匹配项' : '暂无收藏 — 在详情页点击 ☆ 即可收藏常用项') + '</div>';
+      return;
+    }
+    var html = typing ? '' : '<div class="palette-group-title">收藏</div>';
+    paletteEntries.forEach(function (e, i) {
+      var catLabel = PALETTE_CAT_LABEL[e.category] || e.category;
+      html += '<div class="palette-item' + (i === paletteActive ? ' active' : '') + '" data-idx="' + i + '">' +
+        '<span class="palette-cat">' + escapeHtml(catLabel) + '</span>' +
+        '<span class="palette-name">' + escapeHtml(e.name) + '</span>' +
+        (e.sub ? '<span class="palette-sub">' + escapeHtml(e.sub) + '</span>' : '') +
+        '</div>';
+    });
+    paletteResults.innerHTML = html;
+    var activeEl = paletteResults.querySelector('.palette-item.active');
+    if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
+  }
+
+  function updatePalette() {
+    paletteEntries = paletteQuery(paletteInput.value);
+    paletteActive = paletteEntries.length ? 0 : -1;
+    renderPalette();
+  }
+
+  function isPaletteOpen() { return paletteOverlay && paletteOverlay.style.display !== 'none'; }
+
+  function openCommandPalette() {
+    if (!paletteOverlay || !state.moduleInfo) return;
+    paletteOverlay.style.display = '';
+    paletteInput.value = '';
+    ensureSymbolIndex();
+    updatePalette();
+    paletteInput.focus();
+  }
+  function closeCommandPalette() {
+    if (paletteOverlay) paletteOverlay.style.display = 'none';
+  }
+  function paletteJump(i) {
+    var e = paletteEntries[i];
+    if (!e) return;
+    closeCommandPalette();
+    navigateToType(e.category, e.index);
+  }
+
+  if (paletteOverlay) {
+    paletteInput.addEventListener('input', updatePalette);
+    paletteInput.addEventListener('keydown', function (ev) {
+      if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        if (paletteEntries.length) { paletteActive = (paletteActive + 1) % paletteEntries.length; renderPalette(); }
+      } else if (ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        if (paletteEntries.length) { paletteActive = (paletteActive - 1 + paletteEntries.length) % paletteEntries.length; renderPalette(); }
+      } else if (ev.key === 'Enter') {
+        ev.preventDefault();
+        if (paletteActive >= 0) paletteJump(paletteActive);
+      } else if (ev.key === 'Escape') {
+        ev.preventDefault();
+        closeCommandPalette();
+      }
+    });
+    paletteResults.addEventListener('click', function (ev) {
+      var item = ev.target.closest('.palette-item');
+      if (item) paletteJump(parseInt(item.dataset.idx, 10));
+    });
+    paletteOverlay.addEventListener('mousedown', function (ev) {
+      if (ev.target === paletteOverlay) closeCommandPalette();
+    });
+  }
+
+  // ===================== 列表键盘导航（T6） =====================
+  // 扁平列表分类（含虚拟列表）用 data-index 导航；搜索结果用 DOM 行导航；类/常量树形保持鼠标操作
+  var FLAT_NAV_CATS = { subroutines: 1, dllCommands: 1, dataTypes: 1, globalVars: 1 };
+  var modalOverlayEl = document.getElementById('modalOverlay');
+
+  function isTypingTarget() {
+    var el = document.activeElement;
+    if (!el) return false;
+    var tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+  }
+  function isModalOpen() {
+    return modalOverlayEl && getComputedStyle(modalOverlayEl).display !== 'none';
+  }
+  function canNavList() {
+    if (isPaletteOpen() || isTypingTarget() || isModalOpen()) return false;
+    if (listPanelEl.style.display === 'none') return false;
+    var cat = state.activeCategory;
+    if (cat === 'search') return listItems.querySelector('.list-item') != null;
+    return FLAT_NAV_CATS[cat] === 1 && (state[cat] || []).length > 0;
+  }
+
+  function scrollListActiveIntoView(index, items) {
+    var activeEl = listItems.querySelector('.list-item.active');
+    if (activeEl) { activeEl.scrollIntoView({ block: 'nearest' }); return; }
+    // 虚拟列表：active 项可能未渲染，按估算位置滚动，滚动事件会触发重渲染并高亮
+    if (currentPositions && currentPositions.length > index) {
+      listItems.scrollTop = currentPositions[index] - listItems.clientHeight / 2 + getItemHeight(items[index]) / 2;
+    }
+  }
+  function selectFlatIndex(index) {
+    var cat = state.activeCategory;
+    var items = state[cat] || [];
+    if (index < 0 || index >= items.length) return;
+    state.activeItem = index;
+    categoryActiveItems[cat] = index;
+    state.previewItem = null;
+    state.previewCategory = null;
+    renderList();
+    scrollListActiveIntoView(index, items);
+    renderDetail(items[index]);
+    saveNavState();
+  }
+  function moveFlatSelection(delta) {
+    var items = state[state.activeCategory] || [];
+    if (!items.length) return;
+    var cur = (typeof state.activeItem === 'number') ? state.activeItem : -1;
+    var next = cur < 0 ? (delta > 0 ? 0 : items.length - 1) : cur + delta;
+    next = Math.max(0, Math.min(items.length - 1, next));
+    if (next !== cur) selectFlatIndex(next);
+  }
+
+  function moveSearchSelection(delta) {
+    var rows = Array.prototype.slice.call(listItems.querySelectorAll('.list-item'));
+    if (!rows.length) return;
+    var curIdx = -1;
+    for (var i = 0; i < rows.length; i++) { if (rows[i].classList.contains('active')) { curIdx = i; break; } }
+    var next = curIdx < 0 ? (delta > 0 ? 0 : rows.length - 1) : curIdx + delta;
+    next = Math.max(0, Math.min(rows.length - 1, next));
+    var el = rows[next];
+    if (!el) return;
+    el.scrollIntoView({ block: 'nearest' });
+    el.click(); // 复用搜索结果的预览逻辑（设 active + renderDetail）
+  }
+  function openSearchSelection() {
+    var el = listItems.querySelector('.list-item.active');
+    if (!el) return;
+    var cat = el.dataset.searchCategory;
+    var idx = parseInt(el.dataset.index, 10);
+    if (cat && !isNaN(idx)) navigateToType(cat, idx);
   }
 
   function formatText(str) {
@@ -2538,6 +2952,7 @@
         treeChildren.style.display = 'none';
         treeArrow.classList.remove('tree-arrow--open');
       }
+      updateTreeStuck();
     }
 
     // 非搜索结果：单击直接跳转
@@ -2667,6 +3082,7 @@
   }
 
   function showSearchHistory() {
+    if (!appSettings.recordSearchHistory) return;
     if (!state.currentMd5) return;
     var history = getSearchHistory();
     if (history.length === 0) return;
@@ -2865,9 +3281,35 @@
       e.preventDefault();
       return;
     }
-    if (e.key === '/' && document.activeElement !== searchInput) {
+    // 命令面板：Ctrl/Cmd+P 开关
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+      e.preventDefault();
+      if (isPaletteOpen()) closeCommandPalette(); else openCommandPalette();
+      return;
+    }
+    if (e.key === '/' && document.activeElement !== searchInput && !isPaletteOpen()) {
       e.preventDefault();
       searchInput.focus();
+    }
+    // Ctrl/Cmd+F 聚焦搜索框
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+      e.preventDefault();
+      searchInput.focus();
+      searchInput.select();
+      return;
+    }
+    // 列表方向键导航 + 回车
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && canNavList()) {
+      e.preventDefault();
+      var delta = e.key === 'ArrowDown' ? 1 : -1;
+      if (state.activeCategory === 'search') moveSearchSelection(delta);
+      else moveFlatSelection(delta);
+      return;
+    }
+    if (e.key === 'Enter' && state.activeCategory === 'search' && canNavList()) {
+      e.preventDefault();
+      openSearchSelection();
+      return;
     }
     if (e.key === 'Escape' && document.activeElement === searchInput) {
       clearSearchMode();
@@ -3325,6 +3767,15 @@
       if (!this.checked) clearNavState();
     });
 
+    // 记录搜索历史
+    var recordSearchHistoryEl = document.getElementById('sp_recordSearchHistory');
+    if (recordSearchHistoryEl) recordSearchHistoryEl.addEventListener('change', function () {
+      appSettings.recordSearchHistory = this.checked;
+      saveSettings(appSettings);
+      // 关闭时收起可能正展开的历史下拉
+      if (!this.checked) hideSearchHistory();
+    });
+
     // 类型下划线
     var typeUnderlineEl = document.getElementById('sp_showTypeUnderline');
     if (typeUnderlineEl) typeUnderlineEl.addEventListener('change', function () {
@@ -3710,6 +4161,7 @@
       saveNavState();
     }, 500);
     listItems.addEventListener('scroll', debouncedSaveNavState);
+    listItems.addEventListener('scroll', updateTreeStuck);
 
     if (window.Tooltip) {
       Tooltip.init(document.getElementById('detailContent'));

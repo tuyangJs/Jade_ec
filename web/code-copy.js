@@ -63,36 +63,34 @@
     return '.版本 2\n\n' + header + '\n' + paramStr;
   }
 
+  // 调用占位：用参数名作为占位符，便于一眼看清每个位置该填什么
+  function eCallArgs(params) {
+    return (params || []).map(function (p, i) {
+      if (p && p.name) return p.name;
+      if (p && p.dataType) return p.dataType;
+      return '参数' + (i + 1);
+    }).join(', ');
+  }
+
   var eGenerator = {
     // --- 调用代码 ---
     subroutines_call: function (item) {
-      var name = item.name || '';
-      var params = item.params || [];
-      var paramStr = params.map(function () { return ''; }).join(', ');
-      return name + '(' + paramStr + ')';
+      return (item.name || '') + '(' + eCallArgs(item.params) + ')';
     },
 
     dllCommands_call: function (item) {
-      var name = item.name || '';
-      var params = item.params || [];
-      var paramStr = params.map(function () { return ''; }).join(', ');
-      return name + '(' + paramStr + ')';
+      return (item.name || '') + '(' + eCallArgs(item.params) + ')';
     },
 
     classes_call: function (item, methodName, className) {
       if (methodName) {
         var prefix = className ? className + '.' : '';
         var method = (item.methods || []).find(function (m) { return m.name === methodName; });
-        var params = method ? (method.params || []) : [];
-        var paramStr = params.map(function () { return ''; }).join(', ');
-        return prefix + methodName + '(' + paramStr + ')';
+        return prefix + methodName + '(' + eCallArgs(method ? method.params : []) + ')';
       }
-      var methods = item.methods || [];
       var cn = item.name || '';
-      return methods.map(function (m) {
-        var params = m.params || [];
-        var paramStr = params.map(function () { return ''; }).join(', ');
-        return cn + '.' + m.name + '(' + paramStr + ')';
+      return (item.methods || []).map(function (m) {
+        return cn + '.' + m.name + '(' + eCallArgs(m.params) + ')';
       }).join('\n');
     },
 
