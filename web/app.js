@@ -23,6 +23,7 @@
   var DEFAULT_SETTINGS = {
     theme: 'System',
     fontSize: 13,
+    uiZoom: 1,
     showRemark: true,
     defaultSearch: 'all',
     autoReload: false,
@@ -1739,6 +1740,13 @@
       '<button class="stepper-btn" id="sp_fontSizeDec">−</button>' +
       '<span class="stepper-value" id="sp_fontSizeValue">' + appSettings.fontSize + '</span>' +
       '<button class="stepper-btn" id="sp_fontSizeInc">+</button>' +
+      '</div></div>' +
+      '<div class="settings-item">' +
+      '<div class="settings-item-info"><div class="settings-item-label">界面缩放</div><div class="settings-item-desc">整体缩放界面（50% - 400%），由窗口缩放实现</div></div>' +
+      '<div class="settings-slider-group">' +
+      '<input type="range" class="settings-slider" id="sp_uiZoom" min="50" max="400" step="5" value="' + Math.round((appSettings.uiZoom || 1) * 100) + '">' +
+      '<span class="settings-slider-value" id="sp_uiZoomValue">' + Math.round((appSettings.uiZoom || 1) * 100) + '%</span>' +
+      '<button class="settings-action-btn" id="sp_uiZoomReset">恢复</button>' +
       '</div></div>' +
       '</div>' +
 
@@ -3841,6 +3849,16 @@
     // 详情页背景透明度：仅在背景材料非默认且 Windows 11 时生效
     var bgOpacity = (appSettings.backgroundMaterial !== 'default' && isWindows11) ? appSettings.detailOpacity : 100;
     document.documentElement.style.setProperty('--detail-bg-opacity', bgOpacity / 100);
+    applyZoom();
+  }
+
+  // 界面缩放交由后端操作浏览器缩放；仅在数值变化时下发，避免重复 IPC
+  var _lastSentZoom = null;
+  function applyZoom() {
+    var z = Math.min(4, Math.max(0.5, Number(appSettings.uiZoom) || 1));
+    if (z === _lastSentZoom) return;
+    _lastSentZoom = z;
+    invoke('setZoomFactor', String(z)).catch(function () {});
   }
 
   function applyBackgroundMaterial() {
@@ -3924,6 +3942,32 @@
       if (opacityValue) opacityValue.textContent = val + '%';
       saveSettings(appSettings);
       applySettings();
+    });
+
+    // 界面缩放：拖动时仅实时更新数值；松开鼠标（change 事件）后才下发后端进行窗口缩放
+    var zoomSlider = document.getElementById('sp_uiZoom');
+    var zoomValue = document.getElementById('sp_uiZoomValue');
+    function syncZoomFromSlider() {
+      var val = parseInt(zoomSlider.value, 10);
+      appSettings.uiZoom = val / 100;
+      if (zoomValue) zoomValue.textContent = val + '%';
+    }
+    if (zoomSlider) {
+      zoomSlider.addEventListener('input', syncZoomFromSlider);
+      zoomSlider.addEventListener('change', function () {
+        syncZoomFromSlider();
+        saveSettings(appSettings);
+        applyZoom();
+      });
+    }
+    // 恢复缩放：一键回到 100%
+    var zoomReset = document.getElementById('sp_uiZoomReset');
+    if (zoomReset) zoomReset.addEventListener('click', function () {
+      appSettings.uiZoom = 1;
+      if (zoomSlider) zoomSlider.value = 100;
+      if (zoomValue) zoomValue.textContent = '100%';
+      saveSettings(appSettings);
+      applyZoom();
     });
 
     // 字体大小步进
