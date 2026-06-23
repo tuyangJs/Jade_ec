@@ -348,6 +348,7 @@
   var aboutBtn = document.getElementById('aboutBtn');
   var settingsBtnEl = document.getElementById('settingsBtn');
   var exportAIBtn = document.getElementById('exportAIBtn');
+  var titlebarMenu = document.getElementById('titlebarMenu');
 
   function showModuleUI(show) {
     var display = show ? '' : 'none';
@@ -368,6 +369,9 @@
     }
     if (exportAIBtn) {
       exportAIBtn.style.display = show ? '' : 'none';
+    }
+    if (titlebarMenu) {
+      titlebarMenu.classList.toggle('no-module', !show);
     }
     if (aboutBtn) {
       aboutBtn.style.display = show ? 'none' : '';
@@ -1172,6 +1176,7 @@
     }
 
     detailContent.innerHTML = html;
+    if (FindInPage) FindInPage.refresh();
   }
 
   function updateCount(key) {
@@ -1539,6 +1544,7 @@
   function renderAboutPage() {
     detailContent.style.display = 'none';
     detailEmpty.style.display = '';
+    if (FindInPage) FindInPage.refresh();
     var html = '<div class="about-page">' +
       '<div class="about-row">' +
       '<div class="about-card about-card--contributors">' +
@@ -1604,12 +1610,20 @@
       '</div>' +
       // 导航相关
       '<div class="about-tip-item">' +
+      '<div class="about-tip-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M2 6h12" stroke="currentColor" stroke-width="1.1"/><path d="M4.5 4.6v0M6.4 4.6v0" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>' +
+      '<div class="about-tip-text">标题栏的「文件 / 视图 / 帮助」菜单汇集了常用操作与快捷键；<kbd class="about-kbd">Ctrl</kbd>+<kbd class="about-kbd">O</kbd> 打开模块</div>' +
+      '</div>' +
+      '<div class="about-tip-item">' +
       '<div class="about-tip-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="2.5" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 6l2 2-2 2M9 10h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
-      '<div class="about-tip-text">按 <kbd class="about-kbd">Ctrl</kbd>+<kbd class="about-kbd">P</kbd> 打开命令面板，跨所有分类（含类中方法）快速跳转；未输入时显示收藏夹</div>' +
+      '<div class="about-tip-text">按 <kbd class="about-kbd">Ctrl</kbd>+<kbd class="about-kbd">P</kbd> 或从「视图」菜单打开命令面板，跨所有分类（含类中方法）快速跳转；未输入时显示收藏夹</div>' +
+      '</div>' +
+      '<div class="about-tip-item">' +
+      '<div class="about-tip-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="2" width="11" height="12" rx="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="7" cy="7.5" r="2" stroke="currentColor" stroke-width="1.1"/><path d="M8.6 9.1L10.2 10.7" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></div>' +
+      '<div class="about-tip-text"><kbd class="about-kbd">Ctrl</kbd>+<kbd class="about-kbd">F</kbd> 在当前详情页内查找内容（页内搜索），<kbd class="about-kbd">Enter</kbd> / <kbd class="about-kbd">Shift</kbd>+<kbd class="about-kbd">Enter</kbd> 跳到下一个 / 上一个，<kbd class="about-kbd">Esc</kbd> 关闭；未打开详情页时则聚焦全局搜索</div>' +
       '</div>' +
       '<div class="about-tip-item">' +
       '<div class="about-tip-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M5 6l3-3 3 3M5 10l3 3 3-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
-      '<div class="about-tip-text"><kbd class="about-kbd">Ctrl</kbd>+<kbd class="about-kbd">F</kbd> 聚焦搜索；列表中用 <kbd class="about-kbd">↑</kbd> <kbd class="about-kbd">↓</kbd> 上下选择，搜索结果按 <kbd class="about-kbd">Enter</kbd> 跳转</div>' +
+      '<div class="about-tip-text">列表中用 <kbd class="about-kbd">↑</kbd> <kbd class="about-kbd">↓</kbd> 上下选择，搜索结果按 <kbd class="about-kbd">Enter</kbd> 跳转</div>' +
       '</div>' +
       '<div class="about-tip-item">' +
       '<div class="about-tip-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2l1.7 3.45 3.8.55-2.75 2.68.65 3.8L8 11.1 4.6 12.48l.65-3.8L2.5 6.45l3.8-.55z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg></div>' +
@@ -1686,6 +1700,7 @@
 
     detailContent.style.display = 'none';
     detailEmpty.style.display = '';
+    if (FindInPage) FindInPage.refresh();
     var recentModules = getRecentModules();
     var recentDesc = recentModules.length > 0 ? ('当前 ' + recentModules.length + ' 条记录') : '当前无记录';
     var modeInfo = searchModes[appSettings.defaultSearch] || searchModes.all;
@@ -1823,6 +1838,7 @@
         detailEmpty.style.display = '';
         detailContent.style.display = 'none';
       }
+      if (FindInPage) FindInPage.refresh();
       return;
     }
 
@@ -1909,6 +1925,7 @@
 
     detailContent.innerHTML = html;
     bindMethodRowToggle();
+    if (FindInPage) FindInPage.refresh();
   }
 
   var methodRowToggleBound = false;
@@ -3275,10 +3292,200 @@
     searchInput.focus();
   });
 
+  // --- 页内查找 (Find in page) ---
+  // 在当前详情页 (#detailContent) 内查找文本，高亮匹配并支持上一个/下一个跳转。
+  var FindInPage = (function () {
+    var bar = document.getElementById('findBar');
+    var input = document.getElementById('findInput');
+    var countEl = document.getElementById('findCount');
+    var caseBtn = document.getElementById('findCaseBtn');
+    var prevBtn = document.getElementById('findPrevBtn');
+    var nextBtn = document.getElementById('findNextBtn');
+    var closeBtn = document.getElementById('findCloseBtn');
+
+    // 缺少必要节点时降级为空实现，避免抛错
+    if (!bar || !input) {
+      return { open: function () {}, close: function () {}, isOpen: function () { return false; }, refresh: function () {} };
+    }
+
+    var MATCH_CLASS = 'find-match';
+    var matches = [];        // 匹配到的 <span class="find-match"> 列表
+    var current = -1;        // 当前高亮项在 matches 中的下标
+    var caseSensitive = false;
+    var opened = false;
+
+    function isDetailShown() {
+      return detailContent && detailContent.style.display !== 'none';
+    }
+
+    function clearHighlights() {
+      if (!detailContent) { matches = []; current = -1; return; }
+      var spans = detailContent.querySelectorAll('.' + MATCH_CLASS);
+      for (var i = 0; i < spans.length; i++) {
+        var sp = spans[i];
+        var parent = sp.parentNode;
+        if (!parent) continue;
+        parent.replaceChild(document.createTextNode(sp.textContent), sp);
+        parent.normalize();
+      }
+      matches = [];
+      current = -1;
+    }
+
+    function collectTextNodes(query) {
+      var needle = caseSensitive ? query : query.toLowerCase();
+      var walker = document.createTreeWalker(detailContent, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (node) {
+          if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+          var hay = caseSensitive ? node.nodeValue : node.nodeValue.toLowerCase();
+          if (hay.indexOf(needle) === -1) return NodeFilter.FILTER_REJECT;
+          // 跳过按钮等交互元素内的文本，只查正文内容
+          var p = node.parentNode;
+          while (p && p !== detailContent) {
+            var tag = p.tagName;
+            if (tag === 'BUTTON' || tag === 'SCRIPT' || tag === 'STYLE') return NodeFilter.FILTER_REJECT;
+            p = p.parentNode;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      var nodes = [];
+      var n;
+      while ((n = walker.nextNode())) nodes.push(n);
+      return nodes;
+    }
+
+    function buildHighlights(query) {
+      clearHighlights();
+      if (!query || !isDetailShown()) { updateCount(); return; }
+      var needle = caseSensitive ? query : query.toLowerCase();
+      var qLen = query.length;
+      var nodes = collectTextNodes(query);
+      for (var i = 0; i < nodes.length; i++) {
+        var node = nodes[i];
+        var text = node.nodeValue;
+        var hay = caseSensitive ? text : text.toLowerCase();
+        var idx = hay.indexOf(needle);
+        if (idx === -1) continue;
+        var frag = document.createDocumentFragment();
+        var last = 0;
+        while (idx !== -1) {
+          if (idx > last) frag.appendChild(document.createTextNode(text.slice(last, idx)));
+          var mark = document.createElement('span');
+          mark.className = MATCH_CLASS;
+          mark.textContent = text.slice(idx, idx + qLen);
+          frag.appendChild(mark);
+          matches.push(mark);
+          last = idx + qLen;
+          idx = hay.indexOf(needle, last);
+        }
+        if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+        node.parentNode.replaceChild(frag, node);
+      }
+      updateCount();
+    }
+
+    function updateCount() {
+      var has = matches.length > 0;
+      if (!has) {
+        countEl.textContent = input.value ? '0/0' : '';
+        countEl.classList.toggle('no-match', !!input.value);
+      } else {
+        countEl.textContent = (current + 1) + '/' + matches.length;
+        countEl.classList.remove('no-match');
+      }
+      prevBtn.disabled = nextBtn.disabled = !has;
+    }
+
+    function setCurrent(idx, scroll) {
+      if (current >= 0 && matches[current]) matches[current].classList.remove('current');
+      current = idx;
+      if (current >= 0 && matches[current]) {
+        matches[current].classList.add('current');
+        if (scroll !== false) matches[current].scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+      updateCount();
+    }
+
+    function go(delta) {
+      if (!matches.length) return;
+      var idx = current < 0
+        ? (delta > 0 ? 0 : matches.length - 1)
+        : (current + delta + matches.length) % matches.length;
+      setCurrent(idx, true);
+    }
+
+    function runSearch() {
+      buildHighlights(input.value);
+      if (matches.length) setCurrent(0, true);
+      else updateCount();
+    }
+
+    var debouncedSearch = debounce(runSearch, 120);
+
+    function openBar() {
+      if (!isDetailShown()) return;
+      bar.style.display = '';
+      opened = true;
+      input.focus();
+      input.select();
+      if (input.value) runSearch();
+    }
+
+    function closeBar() {
+      clearHighlights();
+      bar.style.display = 'none';
+      opened = false;
+      countEl.textContent = '';
+      countEl.classList.remove('no-match');
+    }
+
+    // 详情内容重渲染后调用：详情已隐藏则关闭，否则在新内容上重建高亮
+    function refresh() {
+      if (!opened) return;
+      if (!isDetailShown()) { closeBar(); return; }
+      runSearch();
+    }
+
+    input.addEventListener('input', debouncedSearch);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault(); e.stopPropagation();
+        go(e.shiftKey ? -1 : 1);
+      } else if (e.key === 'Escape') {
+        e.preventDefault(); e.stopPropagation();
+        closeBar();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault(); e.stopPropagation();
+        go(1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault(); e.stopPropagation();
+        go(-1);
+      }
+    });
+    nextBtn.addEventListener('click', function () { go(1); input.focus(); });
+    prevBtn.addEventListener('click', function () { go(-1); input.focus(); });
+    closeBtn.addEventListener('click', closeBar);
+    caseBtn.addEventListener('click', function () {
+      caseSensitive = !caseSensitive;
+      caseBtn.classList.toggle('active', caseSensitive);
+      runSearch();
+      input.focus();
+    });
+
+    return { open: openBar, close: closeBar, isOpen: function () { return opened; }, refresh: refresh };
+  })();
+
   document.addEventListener('keydown', function (e) {
     // 禁用刷新快捷键
     if (e.key === 'F5' || (e.ctrlKey && e.key === 'r') || (e.ctrlKey && e.shiftKey && e.key === 'R') || (e.ctrlKey && e.key === 'R')) {
       e.preventDefault();
+      return;
+    }
+    // 打开模块：Ctrl/Cmd+O
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'o' || e.key === 'O')) {
+      e.preventDefault();
+      openFile();
       return;
     }
     // 命令面板：Ctrl/Cmd+P 开关
@@ -3287,15 +3494,19 @@
       if (isPaletteOpen()) closeCommandPalette(); else openCommandPalette();
       return;
     }
-    if (e.key === '/' && document.activeElement !== searchInput && !isPaletteOpen()) {
+    if (e.key === '/' && !isTypingTarget() && !isPaletteOpen()) {
       e.preventDefault();
       searchInput.focus();
     }
-    // Ctrl/Cmd+F 聚焦搜索框
+    // Ctrl/Cmd+F：详情页已打开时页内查找，否则聚焦全局搜索框
     if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
       e.preventDefault();
-      searchInput.focus();
-      searchInput.select();
+      if (detailContent && detailContent.style.display !== 'none') {
+        FindInPage.open();
+      } else {
+        searchInput.focus();
+        searchInput.select();
+      }
       return;
     }
     // 列表方向键导航 + 回车
@@ -3325,7 +3536,7 @@
     setTimeout(hideSearchCommands, 150);
   });
 
-  openFileBtn.addEventListener('click', openFile);
+  if (openFileBtn) openFileBtn.addEventListener('click', openFile);
   navBackBtn.addEventListener('click', goBack);
   navForwardBtn.addEventListener('click', goForward);
 
@@ -3537,6 +3748,7 @@
   if (exportAIBtn) {
     exportAIBtn.addEventListener('click', exportAIKnowledgeBase);
   }
+
 
   moduleInfoBtn.addEventListener('click', function () {
     if (!state.moduleInfo) return;
@@ -3953,6 +4165,136 @@
       renderAboutPage();
     }
   });
+
+  // --- 标题栏菜单栏交互 ---
+  if (titlebarMenu) {
+    var openMenu = null;
+    var recentParent = document.getElementById('menuRecentParent');
+    var subCloseTimer = null;
+
+    function clearSubmenu() {
+      if (subCloseTimer) { clearTimeout(subCloseTimer); subCloseTimer = null; }
+      if (recentParent) recentParent.classList.remove('submenu-open');
+    }
+
+    function closeMenu() {
+      if (!openMenu) return;
+      openMenu.classList.remove('open');
+      openMenu = null;
+      clearSubmenu();
+    }
+    function showMenu(menu) {
+      if (openMenu === menu) return;
+      if (openMenu) openMenu.classList.remove('open');
+      openMenu = menu;
+      syncMenuState();
+      menu.classList.add('open');
+    }
+
+    // 渲染「最近打开」列表 + 同步前进/后退禁用态
+    function renderMenuRecent() {
+      var box = document.getElementById('menuRecent');
+      if (!box) return;
+      var parent = document.getElementById('menuRecentParent');
+      var recent = getRecentModules();
+      if (parent) parent.classList.toggle('disabled', recent.length === 0);
+      if (!recent.length) {
+        box.innerHTML = '<div class="menu-empty">无最近记录</div>';
+        return;
+      }
+      box.innerHTML = recent.map(function (m) {
+        return '<button class="menu-item menu-recent-item" data-action="recent" data-path="' + escapeHtml(m.path) + '">' +
+          '<span class="menu-recent-text">' +
+          '<span class="menu-recent-name">' + escapeHtml(m.name || m.path) + '</span>' +
+          '<span class="menu-recent-path">' + escapeHtml(m.path) + '</span>' +
+          '</span></button>';
+      }).join('');
+    }
+
+    function syncMenuState() {
+      renderMenuRecent();
+      var backItem = titlebarMenu.querySelector('[data-action="back"]');
+      var fwdItem = titlebarMenu.querySelector('[data-action="forward"]');
+      if (backItem) backItem.classList.toggle('disabled', !!(navBackBtn && navBackBtn.disabled));
+      if (fwdItem) fwdItem.classList.toggle('disabled', !!(navForwardBtn && navForwardBtn.disabled));
+    }
+
+    function runMenuAction(action, item) {
+      switch (action) {
+        case 'open': openFile(); break;
+        case 'recent': if (item && item.dataset.path) openModuleByPath(item.dataset.path); break;
+        case 'export': if (exportAIBtn) exportAIBtn.click(); break;
+        case 'about': aboutBtn.click(); break;
+        case 'palette': if (isPaletteOpen()) closeCommandPalette(); else openCommandPalette(); break;
+        case 'find':
+          if (detailContent && detailContent.style.display !== 'none') FindInPage.open();
+          else { searchInput.focus(); searchInput.select(); }
+          break;
+        case 'search': searchInput.focus(); break;
+        case 'back': if (!navBackBtn.disabled) goBack(); break;
+        case 'forward': if (!navForwardBtn.disabled) goForward(); break;
+        case 'checkUpdate':
+          if (window.UpdateChecker && typeof window.UpdateChecker.check === 'function') window.UpdateChecker.check();
+          break;
+      }
+    }
+
+    var menuEls = Array.prototype.slice.call(titlebarMenu.querySelectorAll('.menu'));
+    menuEls.forEach(function (menu) {
+      var title = menu.querySelector('.menu-title');
+      title.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (openMenu === menu) closeMenu(); else showMenu(menu);
+      });
+      // 已展开某菜单时，悬停切换到另一菜单
+      title.addEventListener('mouseenter', function () {
+        if (openMenu && openMenu !== menu) showMenu(menu);
+      });
+    });
+
+    // 「最近打开」次级菜单：悬停意图——进入即展开，离开延时收起，
+    // 避免鼠标快速移动（途经空隙）时子菜单瞬间消失。
+    if (recentParent) {
+      recentParent.addEventListener('mouseenter', function () {
+        if (subCloseTimer) { clearTimeout(subCloseTimer); subCloseTimer = null; }
+        if (!recentParent.classList.contains('disabled')) recentParent.classList.add('submenu-open');
+      });
+      recentParent.addEventListener('mouseleave', function () {
+        if (subCloseTimer) clearTimeout(subCloseTimer);
+        subCloseTimer = setTimeout(function () {
+          recentParent.classList.remove('submenu-open');
+          subCloseTimer = null;
+        }, 280);
+      });
+      // 悬停到同级其他菜单项时立即收起（子菜单内部项不触发）
+      var fileDropdown = recentParent.parentNode;
+      if (fileDropdown) {
+        fileDropdown.addEventListener('mouseover', function (e) {
+          var it = e.target.closest('.menu-item');
+          if (it && it !== recentParent && !recentParent.contains(it)) {
+            if (subCloseTimer) { clearTimeout(subCloseTimer); subCloseTimer = null; }
+            recentParent.classList.remove('submenu-open');
+          }
+        });
+      }
+    }
+
+    titlebarMenu.addEventListener('click', function (e) {
+      var item = e.target.closest('.menu-item');
+      if (!item || item.classList.contains('disabled') || !item.dataset.action) return;
+      var action = item.dataset.action;
+      closeMenu();
+      runMenuAction(action, item);
+    });
+
+    // 点击外部 / 按 Esc 关闭
+    document.addEventListener('click', function (e) {
+      if (openMenu && !titlebarMenu.contains(e.target)) closeMenu();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && openMenu) closeMenu();
+    });
+  }
 
   // 初始化应用设置
   applySettings();

@@ -445,6 +445,173 @@ body.material-acrylic .titlebar {
   margin-right: 8px;
 }
 
+/* --- 标题栏菜单栏 --- */
+.titlebar-menu {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  margin-right: 8px;
+}
+
+.menu {
+  position: relative;
+}
+
+.menu-title {
+  height: 28px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  transition: var(--transition-fast);
+}
+
+.menu-title:hover { background: var(--surface-hover); color: var(--text-primary); }
+.menu.open .menu-title { background: var(--surface-active); color: var(--text-primary); }
+
+.menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 208px;
+  max-width: 360px;
+  background: var(--surface-base);
+  border: var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.06);
+  padding: 4px;
+  z-index: 200;
+  display: none;
+}
+
+.menu.open .menu-dropdown {
+  display: block;
+  animation: findBarIn 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-primary);
+  text-align: left;
+  transition: var(--transition-fast);
+}
+
+.menu-item:hover { background: var(--color-primary); color: #fff; }
+.menu-label { white-space: nowrap; }
+
+.menu-shortcut {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+  white-space: nowrap;
+}
+
+.menu-item:hover .menu-shortcut { color: rgba(255, 255, 255, 0.75); }
+
+.menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border-color);
+}
+
+/* 未加载模块时禁用需要模块的菜单项 */
+.titlebar-menu.no-module .menu-item--needs-module {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* 跟随状态禁用的菜单项（如无历史时的前进/后退） */
+.menu-item.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* 次级菜单（最近打开 → 飞出子菜单），由 JS 控制 .submenu-open 以实现悬停意图 */
+.menu-submenu {
+  position: relative;
+  cursor: default;
+}
+
+.menu-submenu.submenu-open {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.menu-submenu-arrow {
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-tertiary);
+}
+
+.menu-submenu:hover .menu-submenu-arrow,
+.menu-submenu.submenu-open .menu-submenu-arrow { color: rgba(255, 255, 255, 0.75); }
+
+.menu-subdropdown {
+  position: absolute;
+  top: -5px;
+  left: 100%;
+  min-width: 200px;
+  max-width: 360px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--surface-base);
+  border: var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.06);
+  padding: 4px;
+  z-index: 210;
+  display: none;
+}
+
+.menu-submenu.submenu-open > .menu-subdropdown {
+  display: block;
+  animation: findBarIn 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.menu-empty {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.menu-recent-item {
+  align-items: stretch;
+}
+
+.menu-recent-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  max-width: 300px;
+}
+
+.menu-recent-name,
+.menu-recent-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-recent-path {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.menu-item:hover .menu-recent-path { color: rgba(255, 255, 255, 0.7); }
+
 .nav-btn {
   width: 28px;
   height: 28px;
@@ -1348,6 +1515,7 @@ body.material-acrylic .titlebar {
 
 /* --- Detail Panel --- */
 .detail-panel {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1909,6 +2077,116 @@ body.hide-type-underline .type-hint {
 .list-item.active .highlight {
   background: rgba(255, 255, 255, 0.25);
   color: #FFFFFF;
+}
+
+/* --- 页内查找 (Find in page) --- */
+.find-bar {
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px 5px 10px;
+  background: var(--surface-base);
+  border: var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.06);
+  animation: findBarIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes findBarIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.find-bar-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.find-bar-input {
+  width: 150px;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-stack);
+}
+
+.find-bar-input::placeholder { color: var(--text-tertiary); }
+
+.find-bar-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: right;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.find-bar-count.no-match { color: #ff3b30; }
+
+.find-bar-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border-color);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.find-bar-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.find-bar-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
+.find-bar-btn:disabled { opacity: 0.35; cursor: default; }
+.find-bar-btn:disabled:hover { background: transparent; color: var(--text-secondary); }
+
+.find-bar-toggle {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: -0.3px;
+}
+
+.find-bar-toggle.active {
+  background: rgba(0, 122, 255, 0.12);
+  color: var(--color-primary);
+}
+
+/* 匹配高亮 */
+.find-match {
+  background: rgba(255, 200, 0, 0.4);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(255, 190, 0, 0.5);
+}
+
+.find-match.current {
+  background: #ff9500;
+  color: #1a1a1a;
+  box-shadow: 0 0 0 1px #ff8000;
+}
+
+@media (prefers-color-scheme: dark) {
+  .find-match {
+    background: rgba(255, 210, 0, 0.3);
+    box-shadow: 0 0 0 1px rgba(255, 210, 0, 0.35);
+  }
+  .find-match.current {
+    background: #ffab1a;
+    color: #1a1a1a;
+  }
 }
 
 /* --- Modal Dialog --- */
