@@ -10,9 +10,17 @@
 :root {
   --color-primary: #007AFF;
   --color-primary-hover: #0066D6;
+  --color-primary-rgb: 0, 122, 255;
+  /* 背景派生色：默认等于强调色；开启「背景色循环」时由 JS 改写为循环色 */
+  --bg-primary-rgb: var(--color-primary-rgb);
+  /* 默认背景材料下，跟随配色方案的「极光」渐变背景（IDEA 风格，透出到透明的标题栏/侧边栏） */
+  --aurora-strong: rgba(var(--bg-primary-rgb), 0.30);
+  --aurora-soft:   rgba(var(--bg-primary-rgb), 0.17);
+  --aurora-fade:   rgba(var(--bg-primary-rgb), 0);
   --surface-base: #FFFFFF;
   --surface-secondary: #F0F0F2;
   --surface-elevated: #e3e3e35c;
+  --surface-elevated-rgb: 227, 227, 227;
   --surface-hover: rgba(0, 0, 0, 0.04);
   --surface-active: rgba(0, 0, 0, 0.06);
   --text-primary: #111111;
@@ -37,6 +45,7 @@
     --surface-base: #1c1c1c;
     --surface-secondary: #141416;
     --surface-elevated: #1C1C1E5c;
+    --surface-elevated-rgb: 28, 28, 30;
     --surface-hover: rgba(255, 255, 255, 0.06);
     --surface-active: rgba(255, 255, 255, 0.08);
     --text-primary: #F3F4F6;
@@ -46,7 +55,33 @@
     --border-color: rgba(255, 255, 255, 0.08);
     --border-divider: 1px solid rgba(255, 255, 255, 0.05);
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.15);
+    --aurora-strong: rgba(var(--bg-primary-rgb), 0.42);
+    --aurora-soft:   rgba(var(--bg-primary-rgb), 0.24);
   }
+}
+
+/* --- 配色方案 (Color Schemes) — 每种含深/浅两套强调色 ---
+   通过 <html data-scheme="..."> 切换；--color-primary-rgb 驱动所有半透明强调色。 */
+/* 浅色 */
+:root[data-scheme="blue"]     { --color-primary: #007AFF; --color-primary-hover: #0066D6; --color-primary-rgb: 0, 122, 255; }
+:root[data-scheme="purple"]   { --color-primary: #8E51E6; --color-primary-hover: #7B3FD4; --color-primary-rgb: 142, 81, 230; }
+:root[data-scheme="pink"]     { --color-primary: #E0408A; --color-primary-hover: #C93178; --color-primary-rgb: 224, 64, 138; }
+:root[data-scheme="red"]      { --color-primary: #E0352B; --color-primary-hover: #C72A22; --color-primary-rgb: 224, 53, 43; }
+:root[data-scheme="orange"]   { --color-primary: #E8820C; --color-primary-hover: #CE7100; --color-primary-rgb: 232, 130, 12; }
+:root[data-scheme="green"]    { --color-primary: #1FA34A; --color-primary-hover: #18843C; --color-primary-rgb: 31, 163, 74; }
+:root[data-scheme="teal"]     { --color-primary: #0E9DB8; --color-primary-hover: #0B8299; --color-primary-rgb: 14, 157, 184; }
+:root[data-scheme="graphite"] { --color-primary: #6E6E73; --color-primary-hover: #5A5A5F; --color-primary-rgb: 110, 110, 115; }
+
+/* 深色（更高明度，符合深色界面观感） */
+@media (prefers-color-scheme: dark) {
+  :root[data-scheme="blue"]     { --color-primary: #086CD1; --color-primary-hover: #327FD1; --color-primary-rgb: 8, 108, 209; }
+  :root[data-scheme="purple"]   { --color-primary: #9D4AC6; --color-primary-hover: #A662C9; --color-primary-rgb: 157, 74, 198; }
+  :root[data-scheme="pink"]     { --color-primary: #D15B93; --color-primary-hover: #D1719F; --color-primary-rgb: 209, 91, 147; }
+  :root[data-scheme="red"]      { --color-primary: #D13930; --color-primary-hover: #D15650; --color-primary-rgb: 209, 57, 48; }
+  :root[data-scheme="orange"]   { --color-primary: #D18208; --color-primary-hover: #D19334; --color-primary-rgb: 209, 130, 8; }
+  :root[data-scheme="green"]    { --color-primary: #27AB48; --color-primary-hover: #3DB669; --color-primary-rgb: 39, 171, 72; }
+  :root[data-scheme="teal"]     { --color-primary: #34A4B8; --color-primary-hover: #4EAFC0; --color-primary-rgb: 52, 164, 184; }
+  :root[data-scheme="graphite"] { --color-primary: #7D7D81; --color-primary-hover: #8F8F93; --color-primary-rgb: 125, 125, 129; }
 }
 
 /* --- Reset & Base --- */
@@ -66,7 +101,7 @@ body {
   font-size: 13px;
   line-height: 1.5;
   color: var(--text-primary);
-  background: var(--surface-base);
+  background: var(--surface-secondary);
   /* ç§»é™¤åŽŸ antialiasedï¼ŒWindows ä¸‹ç”¨ç³»ç»Ÿé»˜è®¤äºšåƒç´ æ¸²æŸ“æ›´æ¸…æ™° */
   -webkit-font-smoothing: subpixel-antialiased;
   -moz-osx-font-smoothing: auto;
@@ -86,6 +121,54 @@ body.material-acrylic {
   body.material-acrylic {
     background: rgba(20, 20, 22, 0.43);
   }
+}
+
+/* 极光背景：用 ::before 承载跟随配色方案的渐变光晕，缓慢漂移/呼吸。
+   z-index:-1 置于内容之下、页面底色之上，透出到透明的标题栏/侧边栏（纯 CSS，任意系统可用）。 */
+body.material-aurora::before {
+  content: '';
+  position: fixed;
+  inset: -8%;
+  z-index: -1;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  transform-origin: 14% 6%;
+  background-image:
+    radial-gradient(34% 44% at 8% 6%, var(--aurora-strong) 0%, var(--aurora-fade) 60%),
+    radial-gradient(24% 32% at 22% 0%, var(--aurora-soft) 0%, var(--aurora-fade) 60%);
+  animation: aurora-drift 14s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes aurora-drift {
+  0%   { transform: translate3d(-3%, -2%, 0) scale(1.0); }
+  100% { transform: translate3d(5%, 6%, 0) scale(1.6); }
+}
+
+/* 尊重系统「减少动态效果」：静止显示 */
+@media (prefers-reduced-motion: reduce) {
+  body.material-aurora::before { animation: none; }
+}
+
+/* 流光背景：全屏 WebGL canvas（由 funky-bg.js 注入），置于内容之下、页面底色之上，
+   透出到透明的标题栏/侧边栏。 */
+#funky-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+  display: block;
+}
+/* WebGL 不可用时的静态兜底渐变（canvas 正常时被其覆盖，不可见） */
+body.material-funky {
+  background: var(--funky-grad, linear-gradient(120deg, #fcb045, #fd1d1d, #833ab4));
+}
+
+/* 渐变背景：跟随配色方案的简单静态渐变（无动画），深浅各一套由 JS 注入 */
+body.material-gradient {
+  background: var(--scheme-grad, linear-gradient(135deg, #e8e8ea, #d2d2d6));
 }
 
 button {
@@ -119,7 +202,6 @@ input {
   width: var(--sidebar-width);
   min-width: 160px;
   max-width: 400px;
-  background: var(--surface-secondary);
   border-right: var(--border-divider);
   display: flex;
   flex-direction: column;
@@ -293,7 +375,6 @@ body.material-acrylic .titlebar {
   width: 100%;
   padding: 7px 10px;
   border-radius: var(--radius-sm);
-  color: var(--text-secondary);
   transition: var(--transition-fast);
   text-align: left;
 }
@@ -319,14 +400,14 @@ body.material-acrylic .titlebar {
 }
 
 .nav-item.active {
-  background: var(--surface-active);
-  color: var(--text-primary);
+  background: var(--color-primary);
+  color: #fff;
   font-weight: 500;
 }
 
 .nav-item.active svg {
   opacity: 1;
-  color: var(--color-primary);
+  color: #fff;
 }
 
 .nav-count {
@@ -339,7 +420,7 @@ body.material-acrylic .titlebar {
 }
 
 .nav-item.active .nav-count {
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .nav-loading .nav-count {
@@ -382,7 +463,6 @@ body.material-acrylic .titlebar {
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  background: var(--surface-secondary);
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
@@ -655,7 +735,7 @@ body.material-acrylic .titlebar {
 
 .search-input-wrap:focus-within {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.15);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb),0.15);
 }
 
 .search-mode-tag {
@@ -664,7 +744,7 @@ body.material-acrylic .titlebar {
   gap: 2px;
   padding: 0 6px;
   height: 18px;
-  background: rgba(0, 122, 255, 0.1);
+  background: rgba(var(--color-primary-rgb),0.1);
   color: var(--color-primary);
   border-radius: 4px;
   font-size: 11px;
@@ -1051,7 +1131,7 @@ body.material-acrylic .titlebar {
   font-size: 11px;
   font-weight: 600;
   border-radius: 4px;
-  background: rgba(0, 122, 255, 0.08);
+  background: rgba(var(--color-primary-rgb),0.08);
   color: var(--color-primary);
 }
 
@@ -1143,9 +1223,9 @@ body.material-acrylic .titlebar {
 }
 
 @keyframes method-flash-anim {
-  0%   { background: rgba(0, 122, 255, 0.25); }
+  0%   { background: rgba(var(--color-primary-rgb),0.25); }
   50%  { background: transparent; }
-  100% { background: rgba(0, 122, 255, 0.25); }
+  100% { background: rgba(var(--color-primary-rgb),0.25); }
 }
 
 /* --- Empty States --- */
@@ -1530,6 +1610,15 @@ body.material-acrylic .titlebar {
   }
 }
 
+/* 非默认材料：列表面板背景透明度跟随「页面背景透明度」，100% 时不透明（完全跟随滑块） */
+body.material-mica .list-panel,
+body.material-acrylic .list-panel,
+body.material-aurora .list-panel,
+body.material-funky .list-panel,
+body.material-gradient .list-panel {
+  background: rgba(var(--surface-elevated-rgb), var(--list-bg-opacity, 1));
+}
+
 .detail-content {
   flex: 1;
   overflow-y: auto;
@@ -1827,7 +1916,7 @@ body.hide-type-underline .type-hint {
   font-weight: 500;
   padding: 1px 5px;
   border-radius: 3px;
-  background: rgba(0, 122, 255, 0.1);
+  background: rgba(var(--color-primary-rgb),0.1);
   color: var(--color-primary);
 }
 .type-ref-name {
@@ -1927,7 +2016,7 @@ body.hide-type-underline .type-hint {
   font-weight: 500;
   padding: 1px 6px;
   border-radius: 3px;
-  background: rgba(0, 122, 255, 0.1);
+  background: rgba(var(--color-primary-rgb),0.1);
   color: var(--color-primary);
   min-width: 56px;
   text-align: center;
@@ -2035,7 +2124,7 @@ body.hide-type-underline .type-hint {
   font-weight: 500;
   padding: 2px 7px;
   border-radius: 4px;
-  background: rgba(0, 122, 255, 0.08);
+  background: rgba(var(--color-primary-rgb),0.08);
   color: var(--color-primary);
 }
 
@@ -2068,7 +2157,7 @@ body.hide-type-underline .type-hint {
 
 /* --- Highlight --- */
 .highlight {
-  background: rgba(0, 122, 255, 0.15);
+  background: rgba(var(--color-primary-rgb),0.15);
   color: var(--color-primary);
   border-radius: 2px;
   padding: 0 1px;
@@ -2161,7 +2250,7 @@ body.hide-type-underline .type-hint {
 }
 
 .find-bar-toggle.active {
-  background: rgba(0, 122, 255, 0.12);
+  background: rgba(var(--color-primary-rgb),0.12);
   color: var(--color-primary);
 }
 
@@ -2580,45 +2669,142 @@ body.hide-type-underline .type-hint {
 .settings-theme-btn.active {
   color: var(--color-primary);
   border-color: var(--color-primary);
-  background: rgba(0, 122, 255, 0.06);
+  background: rgba(var(--color-primary-rgb),0.06);
 }
 
 /* --- Material Group --- */
-.settings-material-group {
-  display: flex;
-  gap: 4px;
+/* 背景材料下拉（搜索历史风格的浮层） */
+.settings-dropdown {
+  position: relative;
   flex-shrink: 0;
 }
 
-.settings-material-btn {
+.settings-dropdown-trigger {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 116px;
+  padding: 6px 10px 6px 12px;
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--text-secondary);
-  background: var(--surface-elevated);
-  border: 1px solid transparent;
-  transition: var(--transition-fast);
-  white-space: nowrap;
-}
-
-.settings-material-btn:hover:not(:disabled) {
-  background: var(--surface-hover);
   color: var(--text-primary);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: var(--transition-fast);
 }
 
-.settings-material-btn.active {
-  color: var(--color-primary);
+.settings-dropdown-trigger:hover { border-color: var(--color-primary); }
+
+.settings-dropdown.open .settings-dropdown-trigger {
   border-color: var(--color-primary);
-  background: rgba(0, 122, 255, 0.06);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.15);
 }
 
-.settings-material-btn:disabled {
+.settings-dropdown-arrow {
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: transform 0.15s ease;
+}
+
+.settings-dropdown.open .settings-dropdown-arrow { transform: rotate(180deg); }
+
+.settings-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 100%;
+  background: var(--surface-base);
+  border: var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.06);
+  padding: 4px;
+  z-index: 200;
+  display: none;
+}
+
+.settings-dropdown.open .settings-dropdown-menu {
+  display: block;
+  animation: findBarIn 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.settings-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-primary);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.settings-dropdown-item:hover { background: var(--surface-hover); }
+
+.settings-dropdown-item.selected { color: var(--color-primary); font-weight: 500; }
+
+.settings-dropdown-item .dropdown-check {
+  flex-shrink: 0;
+  opacity: 0;
+  color: var(--color-primary);
+}
+
+.settings-dropdown-item.selected .dropdown-check { opacity: 1; }
+
+.settings-dropdown-item.disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.settings-dropdown-item.disabled:hover { background: none; }
+
+/* --- 配色方案色板 (Color Scheme Swatches) --- */
+.settings-scheme-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+  max-width: 232px;
+}
+
+.settings-scheme-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-scheme-btn .scheme-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--sw);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
+}
+
+.settings-scheme-btn:hover .scheme-swatch {
+  transform: scale(1.14);
+}
+
+.settings-scheme-btn.active .scheme-swatch {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12),
+              0 0 0 2px var(--surface-base),
+              0 0 0 3.5px var(--sw);
 }
 
 /* --- Stepper --- */
@@ -2726,7 +2912,7 @@ body.hide-type-underline .type-hint {
 
 .settings-select:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.15);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb),0.15);
   outline: none;
 }
 
@@ -2846,14 +3032,14 @@ body.hide-type-underline .type-hint {
   font-size: 12px;
   font-weight: 500;
   color: var(--color-primary);
-  background: rgba(0, 122, 255, 0.08);
+  background: rgba(var(--color-primary-rgb),0.08);
   transition: var(--transition-fast);
   flex-shrink: 0;
   white-space: nowrap;
 }
 
 .settings-action-btn:hover {
-  background: rgba(0, 122, 255, 0.15);
+  background: rgba(var(--color-primary-rgb),0.15);
 }
 
 .settings-action-btn--danger {

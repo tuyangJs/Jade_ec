@@ -24,7 +24,7 @@
     ],
     "createDesktopShortcut": true,
     "excludeFiles": [],
-    "compressionLevel": 3,
+    "compressionLevel": 5,
     "webview2": {
       "mode": "downloadBootstrapper",
       "minVersion": ""
@@ -36,5 +36,5 @@
       }
     ]
   },
-  "updatedAt": "2026-06-23T13:12:45.524Z"
+  "updatedAt": "2026-06-25T15:23:35.057Z"
 }
