@@ -11,12 +11,13 @@
   --color-primary: #007AFF;
   --color-primary-hover: #0066D6;
   --color-primary-rgb: 0, 122, 255;
-  /* 背景派生色：默认等于强调色；开启「背景色循环」时由 JS 改写为循环色 */
-  --bg-primary-rgb: var(--color-primary-rgb);
-  /* 默认背景材料下，跟随配色方案的「极光」渐变背景（IDEA 风格，透出到透明的标题栏/侧边栏） */
-  --aurora-strong: rgba(var(--bg-primary-rgb), 0.30);
-  --aurora-soft:   rgba(var(--bg-primary-rgb), 0.17);
-  --aurora-fade:   rgba(var(--bg-primary-rgb), 0);
+  /* 提亮后的强调色：激活态描边与文本共用，随配色方案/自定义/循环色变化 */
+  --accent-bright: color-mix(in srgb, var(--color-primary) 45%, rgb(255, 255, 255) 62%);
+  /* 默认背景材料下，跟随配色方案的「极光」渐变背景（IDEA 风格，透出到透明的标题栏/侧边栏）。
+     基于 --color-primary，故「循环色」配色下会随之循环。 */
+  --aurora-strong: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  --aurora-soft:   color-mix(in srgb, var(--color-primary) 17%, transparent);
+  --aurora-fade:   color-mix(in srgb, var(--color-primary) 0%, transparent);
   --surface-base: #FFFFFF;
   --surface-secondary: #F0F0F2;
   --surface-elevated: #e3e3e35c;
@@ -55,8 +56,8 @@
     --border-color: rgba(255, 255, 255, 0.08);
     --border-divider: 1px solid rgba(255, 255, 255, 0.05);
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.15);
-    --aurora-strong: rgba(var(--bg-primary-rgb), 0.42);
-    --aurora-soft:   rgba(var(--bg-primary-rgb), 0.24);
+    --aurora-strong: color-mix(in srgb, var(--color-primary) 42%, transparent);
+    --aurora-soft:   color-mix(in srgb, var(--color-primary) 24%, transparent);
   }
 }
 
@@ -166,9 +167,54 @@ body.material-funky {
   background: var(--funky-grad, linear-gradient(120deg, #fcb045, #fd1d1d, #833ab4));
 }
 
+/* 光线背景：全屏透明 WebGL canvas（由 side-rays-bg.js 注入），光线叠加在页面底色之上 */
+#siderays-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+  display: block;
+}
+
 /* 渐变背景：跟随配色方案的简单静态渐变（无动画），深浅各一套由 JS 注入 */
+/* 渐变背景：跟随配色方案的简单静态渐变；基于 --color-primary，故「循环色」下随之循环 */
 body.material-gradient {
-  background: var(--scheme-grad, linear-gradient(135deg, #e8e8ea, #d2d2d6));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 32%, var(--surface-secondary)) 0%, var(--surface-secondary) 75%);
+}
+@media (prefers-color-scheme: dark) {
+  body.material-gradient {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 50%, var(--surface-secondary)) 0%, var(--surface-secondary) 75%);
+  }
+}
+
+/* 「循环色」配色：用 CSS 动画驱动注册属性 --cycle-hue，--color-primary 随之循环。
+   全站强调色（含各处半透明 color-mix 派生、极光、渐变描边）都基于 --color-primary，
+   因此整套配色一起循环；且全程不写 CSS（只是动画属性值在变），devtools 样式面板不会每帧重绘。
+   流光/光线为 WebGL，由 JS 每帧把循环色相喂给着色器（同样不碰 CSS）。 */
+@property --cycle-hue {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+@keyframes scheme-hue-spin {
+  from { --cycle-hue: 0; }
+  to   { --cycle-hue: 360; }
+}
+:root[data-scheme="cycle"] {
+  animation: scheme-hue-spin 51s linear infinite; /* 与 JS 的 7°/秒 同速 */
+  --color-primary: hsl(var(--cycle-hue) 78% 52%);
+  --color-primary-hover: hsl(var(--cycle-hue) 78% 44%);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-scheme="cycle"] {
+    --color-primary: hsl(var(--cycle-hue) 70% 60%);
+    --color-primary-hover: hsl(var(--cycle-hue) 70% 52%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-scheme="cycle"] { animation: none; }
 }
 
 button {
@@ -399,15 +445,23 @@ body.material-acrylic .titlebar {
   opacity: 0.7;
 }
 
+/* 激活态：磨砂玻璃片（半透明填充 + 对角渐变描边 + 背景模糊），适配任意背景，不依赖强调色 */
 .nav-item.active {
-  background: var(--color-primary);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(14px) saturate(1.8);
+  backdrop-filter: blur(14px) saturate(1.8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  color: var(--accent-bright);
   font-weight: 500;
+}
+
+.nav-item.active:hover {
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .nav-item.active svg {
   opacity: 1;
-  color: #fff;
+  color: var(--accent-bright);
 }
 
 .nav-count {
@@ -420,8 +474,23 @@ body.material-acrylic .titlebar {
 }
 
 .nav-item.active .nav-count {
-  color: rgba(255, 255, 255, 0.8);
+  color: color-mix(in srgb, var(--color-primary) 65%, transparent);
 }
+
+/* 深色：磨砂片改为透出底色的浅色半透明 */
+@media (prefers-color-scheme: dark) {
+  .nav-item.active {
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  }
+  .nav-item.active:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
+}
+
+/* 对角渐变描边：右上角与左下角高亮的光泽边（参考 iOS 磨砂按钮），跟随圆角 */
+/* .list-item / .tree-child 基样式已是 position:relative，.tree-parent 为 sticky，均可作定位父级；仅 .nav-item 需补 relative */
+
 
 .nav-loading .nav-count {
   width: 12px;
@@ -735,7 +804,7 @@ body.material-acrylic .titlebar {
 
 .search-input-wrap:focus-within {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb),0.15);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .search-mode-tag {
@@ -744,7 +813,7 @@ body.material-acrylic .titlebar {
   gap: 2px;
   padding: 0 6px;
   height: 18px;
-  background: rgba(var(--color-primary-rgb),0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   color: var(--color-primary);
   border-radius: 4px;
   font-size: 11px;
@@ -1107,18 +1176,42 @@ body.material-acrylic .titlebar {
   background: var(--surface-hover);
 }
 
-.list-item.active {
-  background: var(--color-primary);
-  color: #FFFFFF;
+/* 二级侧边栏激活态：与一级导航相同的磨砂玻璃片 */
+.list-item.active,
+.tree-child.active {
+  background: rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(14px) saturate(1.8);
+  backdrop-filter: blur(14px) saturate(1.8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  color: var(--accent-bright);
 }
 
-.list-item.active .item-type {
-  background: rgba(255, 255, 255, 0.2);
-  color: #FFFFFF;
+.list-item.active:hover,
+.tree-child.active:hover {
+  background: rgba(255, 255, 255, 0.72);
 }
 
-.list-item.active .item-sub {
-  color: rgba(255, 255, 255, 0.7);
+.list-item.active .item-type,
+.tree-child.active .item-type {
+  background: var(--surface-hover);
+  color: var(--accent-bright);
+}
+
+.list-item.active .item-sub,
+.tree-child.active .item-sub {
+  color: color-mix(in srgb, var(--accent-bright) 70%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  .list-item.active,
+  .tree-child.active {
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  }
+  .list-item.active:hover,
+  .tree-child.active:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
 }
 
 .item-icon {
@@ -1131,13 +1224,14 @@ body.material-acrylic .titlebar {
   font-size: 11px;
   font-weight: 600;
   border-radius: 4px;
-  background: rgba(var(--color-primary-rgb),0.08);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
   color: var(--color-primary);
 }
 
-.list-item.active .item-icon {
-  background: rgba(255, 255, 255, 0.2);
-  color: #FFFFFF;
+.list-item.active .item-icon,
+.tree-child.active .item-icon {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
 }
 
 .item-info {
@@ -1223,9 +1317,9 @@ body.material-acrylic .titlebar {
 }
 
 @keyframes method-flash-anim {
-  0%   { background: rgba(var(--color-primary-rgb),0.25); }
+  0%   { background: color-mix(in srgb, var(--color-primary) 25%, transparent); }
   50%  { background: transparent; }
-  100% { background: rgba(var(--color-primary-rgb),0.25); }
+  100% { background: color-mix(in srgb, var(--color-primary) 25%, transparent); }
 }
 
 /* --- Empty States --- */
@@ -1615,7 +1709,8 @@ body.material-mica .list-panel,
 body.material-acrylic .list-panel,
 body.material-aurora .list-panel,
 body.material-funky .list-panel,
-body.material-gradient .list-panel {
+body.material-gradient .list-panel,
+body.material-siderays .list-panel {
   background: rgba(var(--surface-elevated-rgb), var(--list-bg-opacity, 1));
 }
 
@@ -1916,7 +2011,7 @@ body.hide-type-underline .type-hint {
   font-weight: 500;
   padding: 1px 5px;
   border-radius: 3px;
-  background: rgba(var(--color-primary-rgb),0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   color: var(--color-primary);
 }
 .type-ref-name {
@@ -2016,7 +2111,7 @@ body.hide-type-underline .type-hint {
   font-weight: 500;
   padding: 1px 6px;
   border-radius: 3px;
-  background: rgba(var(--color-primary-rgb),0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   color: var(--color-primary);
   min-width: 56px;
   text-align: center;
@@ -2124,7 +2219,7 @@ body.hide-type-underline .type-hint {
   font-weight: 500;
   padding: 2px 7px;
   border-radius: 4px;
-  background: rgba(var(--color-primary-rgb),0.08);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
   color: var(--color-primary);
 }
 
@@ -2157,15 +2252,16 @@ body.hide-type-underline .type-hint {
 
 /* --- Highlight --- */
 .highlight {
-  background: rgba(var(--color-primary-rgb),0.15);
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
   color: var(--color-primary);
   border-radius: 2px;
   padding: 0 1px;
 }
 
-.list-item.active .highlight {
-  background: rgba(255, 255, 255, 0.25);
-  color: #FFFFFF;
+.list-item.active .highlight,
+.tree-child.active .highlight {
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  color: var(--color-primary);
 }
 
 /* --- 页内查找 (Find in page) --- */
@@ -2250,7 +2346,7 @@ body.hide-type-underline .type-hint {
 }
 
 .find-bar-toggle.active {
-  background: rgba(var(--color-primary-rgb),0.12);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
   color: var(--color-primary);
 }
 
@@ -2669,7 +2765,7 @@ body.hide-type-underline .type-hint {
 .settings-theme-btn.active {
   color: var(--color-primary);
   border-color: var(--color-primary);
-  background: rgba(var(--color-primary-rgb),0.06);
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
 }
 
 /* --- Material Group --- */
@@ -2700,7 +2796,7 @@ body.hide-type-underline .type-hint {
 
 .settings-dropdown.open .settings-dropdown-trigger {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.15);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .settings-dropdown-arrow {
@@ -2805,6 +2901,49 @@ body.hide-type-underline .type-hint {
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12),
               0 0 0 2px var(--surface-base),
               0 0 0 3.5px var(--sw);
+}
+
+/* 自定义配色：未选中时显示彩虹环（提示可自定义），选中后显示所选色 */
+.settings-scheme-custom { position: relative; }
+.settings-scheme-custom .scheme-swatch {
+  background: conic-gradient(from 90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #00c7be, #007aff, #5856d6, #af52de, #ff2d55, #ff3b30);
+}
+.settings-scheme-custom.active .scheme-swatch { background: var(--sw); }
+/* 透明输入铺满色板，点击即触发 Coloris 色盘并以色板为锚点定位 */
+.settings-scheme-custom .settings-custom-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* 循环色：色板自身循环变色，直观表达「整套配色会循环」 */
+.settings-scheme-cycle .scheme-swatch {
+  animation: scheme-cycle-swatch 6s linear infinite;
+}
+@keyframes scheme-cycle-swatch {
+  0%   { background-color: hsl(0 80% 55%); }
+  17%  { background-color: hsl(58 80% 52%); }
+  33%  { background-color: hsl(120 65% 46%); }
+  50%  { background-color: hsl(180 65% 45%); }
+  67%  { background-color: hsl(232 80% 60%); }
+  83%  { background-color: hsl(292 65% 56%); }
+  100% { background-color: hsl(360 80% 55%); }
+}
+/* 「减少动态效果」时不动画，改用静态彩虹环表达多色循环 */
+@media (prefers-reduced-motion: reduce) {
+  .settings-scheme-cycle .scheme-swatch {
+    animation: none;
+    background: conic-gradient(from 90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #00c7be, #007aff, #5856d6, #af52de, #ff2d55, #ff3b30);
+  }
 }
 
 /* --- Stepper --- */
@@ -2912,7 +3051,7 @@ body.hide-type-underline .type-hint {
 
 .settings-select:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb),0.15);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
   outline: none;
 }
 
@@ -3032,14 +3171,14 @@ body.hide-type-underline .type-hint {
   font-size: 12px;
   font-weight: 500;
   color: var(--color-primary);
-  background: rgba(var(--color-primary-rgb),0.08);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
   transition: var(--transition-fast);
   flex-shrink: 0;
   white-space: nowrap;
 }
 
 .settings-action-btn:hover {
-  background: rgba(var(--color-primary-rgb),0.15);
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .settings-action-btn--danger {

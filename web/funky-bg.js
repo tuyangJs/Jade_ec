@@ -126,12 +126,20 @@
     return true;
   }
 
+  function nowMs() {
+    return (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  }
+
   function resize() {
     if (!canvas || !gl) return;
     var w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+    if (canvas.width === w && canvas.height === h) return; // 尺寸未变则不重设缓冲，避免无谓清屏
     canvas.width = w;
     canvas.height = h;
     gl.viewport(0, 0, w, h);
+    // 改变 canvas 尺寸会清空绘制缓冲（变黑），而绘制循环被节流到 ~30fps，
+    // 期间窗口会闪一下黑。这里立即补绘一帧，消除缩放时的闪烁。
+    drawNow(nowMs());
   }
 
   function applyUniforms() {
@@ -144,13 +152,18 @@
     gl.uniform1f(uSpeed, speed);
   }
 
+  function drawNow(now) {
+    if (!gl || !program || !canvas) return;
+    gl.uniform2f(uResolution, canvas.width, canvas.height);
+    gl.uniform1f(uTime, (now - startTime) / 1000 + timeAddition);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
   function frame(now) {
     raf = requestAnimationFrame(frame);
     if (now - lastDraw < 33) return; // ~30fps，省电
     lastDraw = now;
-    gl.uniform2f(uResolution, canvas.width, canvas.height);
-    gl.uniform1f(uTime, (now - startTime) / 1000 + timeAddition);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    drawNow(now);
   }
 
   function stop() {

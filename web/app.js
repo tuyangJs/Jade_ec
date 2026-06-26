@@ -23,13 +23,14 @@
   var DEFAULT_SETTINGS = {
     theme: 'System',
     colorScheme: 'blue',
+    customColor: '#007AFF',
+    customColorHistory: [],
     fontSize: 13,
     uiZoom: 1,
     showRemark: true,
     defaultSearch: 'all',
     autoReload: false,
     backgroundMaterial: 'default',
-    bgCycle: false,
     detailOpacity: 100,
     showTypeUnderline: true,
     showTypeTooltip: true,
@@ -47,7 +48,8 @@
     { key: 'orange',   name: '暖橙',   swatch: '#E8820C' },
     { key: 'green',    name: '翠绿',   swatch: '#1FA34A' },
     { key: 'teal',     name: '青碧',   swatch: '#0E9DB8' },
-    { key: 'graphite', name: '石墨',   swatch: '#6E6E73' }
+    { key: 'graphite', name: '石墨',   swatch: '#6E6E73' },
+    { key: 'cycle',    name: '循环色', swatch: '#888888', cycle: true }
   ];
 
   // 背景材料下拉选项
@@ -56,6 +58,7 @@
     { k: 'gradient', n: '渐变' },
     { k: 'aurora', n: '极光' },
     { k: 'funky', n: '流光' },
+    { k: 'siderays', n: '光线' },
     { k: 'mica', n: '云母', win11: true },
     { k: 'acrylic', n: '亚克力', win11: true }
   ];
@@ -92,7 +95,10 @@
 
   var appSettings = loadSettings();
   // 尽早应用配色方案，避免首屏强调色闪烁
-  try { document.documentElement.setAttribute('data-scheme', appSettings.colorScheme || 'blue'); } catch (e) {}
+  try {
+    document.documentElement.setAttribute('data-scheme', appSettings.colorScheme || 'blue');
+    if ((appSettings.colorScheme || '') === 'custom') applyCustomColor();
+  } catch (e) {}
 
   // --- Debounce ---
   function debounce(fn, delay) {
@@ -1755,8 +1761,13 @@
       '<div class="settings-item-info"><div class="settings-item-label">配色方案</div><div class="settings-item-desc">选择界面强调色，自动适配深浅模式</div></div>' +
       '<div class="settings-scheme-group">' +
       COLOR_SCHEMES.map(function (s) {
-        return '<button class="settings-scheme-btn' + ((appSettings.colorScheme || 'blue') === s.key ? ' active' : '') + '" data-scheme="' + s.key + '" title="' + s.name + '" style="--sw:' + s.swatch + '"><span class="scheme-swatch"></span></button>';
+        var cls = 'settings-scheme-btn' + ((appSettings.colorScheme || 'blue') === s.key ? ' active' : '') + (s.cycle ? ' settings-scheme-cycle' : '');
+        return '<button class="' + cls + '" data-scheme="' + s.key + '" title="' + s.name + '" style="--sw:' + s.swatch + '"><span class="scheme-swatch"></span></button>';
       }).join('') +
+      '<span class="settings-scheme-btn settings-scheme-custom' + (appSettings.colorScheme === 'custom' ? ' active' : '') + '" data-scheme="custom" title="自定义颜色" style="--sw:' + (appSettings.customColor || '#007AFF') + '">' +
+      '<span class="scheme-swatch"></span>' +
+      '<input type="text" id="sp_customColor" class="settings-custom-input" data-coloris value="' + (appSettings.customColor || '#007AFF') + '" aria-label="自定义颜色" tabindex="-1">' +
+      '</span>' +
       '</div></div>' +
       '<div class="settings-item">' +
       '<div class="settings-item-info"><div class="settings-item-label">背景材料</div><div class="settings-item-desc">仅 Windows 11 支持云母和亚克力效果</div></div>' +
@@ -1776,14 +1787,10 @@
       }).join('') +
       '</div>' +
       '</div></div>' +
-      '<div class="settings-item' + (materialDerivesColor(appSettings.backgroundMaterial) ? '' : ' settings-item--disabled') + '" id="sp_bgCycleItem">' +
-      '<div class="settings-item-info"><div class="settings-item-label">背景色循环</div><div class="settings-item-desc">让背景色彩虹循环（仅渐变/极光/流光可用）</div></div>' +
-      '<label class="settings-toggle"><input type="checkbox" id="sp_bgCycle"' + (appSettings.bgCycle ? ' checked' : '') + (materialDerivesColor(appSettings.backgroundMaterial) ? '' : ' disabled') + '><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
-      '</div>' +
       '<div class="settings-item' + (materialHasBackdrop(appSettings.backgroundMaterial) ? '' : ' settings-item--disabled') + '" id="sp_detailOpacityItem">' +
       '<div class="settings-item-info"><div class="settings-item-label">页面背景透明度</div><div class="settings-item-desc">调整内容区（详情/列表）背景透明度，默认材料外可用</div></div>' +
       '<div class="settings-slider-group">' +
-      '<input type="range" class="settings-slider" id="sp_detailOpacity" min="20" max="100" step="5" value="' + appSettings.detailOpacity + '"' + (materialHasBackdrop(appSettings.backgroundMaterial) ? '' : ' disabled') + '>' +
+      '<input type="range" class="settings-slider" id="sp_detailOpacity" min="10" max="100" step="5" value="' + appSettings.detailOpacity + '"' + (materialHasBackdrop(appSettings.backgroundMaterial) ? '' : ' disabled') + '>' +
       '<span class="settings-slider-value" id="sp_detailOpacityValue">' + appSettings.detailOpacity + '%</span>' +
       '</div></div>' +
       '<div class="settings-item">' +
@@ -3896,6 +3903,7 @@
 
   function applySettings() {
     document.documentElement.setAttribute('data-scheme', appSettings.colorScheme || 'blue');
+    if ((appSettings.colorScheme || '') === 'custom') applyCustomColor(); else clearCustomColor();
     document.documentElement.style.setProperty('--detail-font-size', appSettings.fontSize + 'px');
     document.body.classList.toggle('hide-type-underline', !appSettings.showTypeUnderline);
     document.body.classList.toggle('show-list-divider', appSettings.showListDivider);
@@ -3958,6 +3966,64 @@
   function isDarkMode() {
     return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   }
+  // --- 自定义配色：把用户选的基色推导成当前深浅模式下的强调色三元组 ---
+  function normalizeHex(v) {
+    v = (v || '').trim();
+    return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v) ? v : null;
+  }
+  function rgb01ToHex(rgb) {
+    function h(x) { x = Math.round(Math.max(0, Math.min(1, x)) * 255).toString(16); return x.length < 2 ? '0' + x : x; }
+    return '#' + h(rgb[0]) + h(rgb[1]) + h(rgb[2]);
+  }
+  function customAccentTokens(hex, dark) {
+    var rgb = hexToRgb01(hex), hsl = rgbToHsl(rgb[0], rgb[1], rgb[2]);
+    var h = hsl[0], s = hsl[1], l = hsl[2], pL, hL;
+    if (dark) {
+      // 深色：整体压暗约 18%（与预设深色一致），hover 反而提亮
+      pL = Math.max(0.22, Math.min(0.68, l * 0.82));
+      hL = Math.max(0.26, Math.min(0.80, pL * 1.16));
+    } else {
+      // 浅色：所见即所选，hover 略压暗
+      pL = l;
+      hL = Math.max(0.12, Math.min(0.92, l * 0.86));
+    }
+    var p = hslToRgb01(h, s, pL), hv = hslToRgb01(h, s, hL);
+    return {
+      primary: rgb01ToHex(p),
+      hover: rgb01ToHex(hv),
+      rgb: Math.round(p[0] * 255) + ', ' + Math.round(p[1] * 255) + ', ' + Math.round(p[2] * 255)
+    };
+  }
+  function applyCustomColor() {
+    var t = customAccentTokens(appSettings.customColor || '#007AFF', isDarkMode());
+    var st = document.documentElement.style;
+    st.setProperty('--color-primary', t.primary);
+    st.setProperty('--color-primary-hover', t.hover);
+    st.setProperty('--color-primary-rgb', t.rgb);
+  }
+  function clearCustomColor() {
+    var st = document.documentElement.style;
+    st.removeProperty('--color-primary');
+    st.removeProperty('--color-primary-hover');
+    st.removeProperty('--color-primary-rgb');
+  }
+  // 自定义配色历史：关闭色盘时把所选色记入，作为色盘的预设（最近在前、去重、限量）
+  function recordCustomColor(hex) {
+    hex = normalizeHex(hex);
+    if (!hex) return;
+    var hist = (appSettings.customColorHistory || []).slice();
+    hist = hist.filter(function (c) { return String(c).toLowerCase() !== hex.toLowerCase(); });
+    hist.unshift(hex);
+    if (hist.length > 12) hist = hist.slice(0, 12);
+    appSettings.customColorHistory = hist;
+    saveSettings(appSettings);
+    updateColorisSwatches();
+  }
+  function updateColorisSwatches() {
+    if (window.Coloris) {
+      try { Coloris({ swatches: (appSettings.customColorHistory || []).slice() }); } catch (e) {}
+    }
+  }
   function funkyColors() {
     var base = bgBaseHsl();
     var h = base[0];
@@ -3999,65 +4065,102 @@
     var accent = dark ? tint(0.32) : tint(0.80);
     return 'linear-gradient(135deg, ' + accent + ' 0%, ' + surface + ' 75%)';
   }
+  // 「光线」材料：从配色方案推导双色（同色系微移色相），跟随深浅与背景色循环
+  function sideRaysColors() {
+    var base = bgBaseHsl();
+    var h = base[0], s = Math.min(0.9, base[1] * 1.1);
+    // color1 取配色派生色，color2 直接用白色，形成「配色 → 白」的双色光线
+    if (isDarkMode()) {
+      return [
+        hslToRgb01(h, s, 0.56),
+        [1, 1, 1]
+      ];
+    }
+    // 浅色：页面底色浅，color1 需更深、更饱和才压得住白色、看得清
+    return [
+      hslToRgb01(h, Math.min(0.95, s * 1.15), 0.40),
+      [1, 1, 1]
+    ];
+  }
+  // 动态背景变量统一写入一张专用样式表的 :root 规则，而非每帧改写 <html> 内联 style，
+  // 避免背景色循环时 Elements 面板持续抖动、影响调试。
+  var _bgVarRule = (function () {
+    try {
+      var st = document.createElement('style');
+      st.id = 'bg-dynamic-vars';
+      document.head.appendChild(st);
+      st.sheet.insertRule(':root{}', 0);
+      return st.sheet.cssRules[0];
+    } catch (e) { return null; }
+  })();
+  function setBgVar(name, value) {
+    if (_bgVarRule) _bgVarRule.style.setProperty(name, value);
+    else document.documentElement.style.setProperty(name, value); // 兜底
+  }
+  function removeBgVar(name) {
+    if (_bgVarRule) _bgVarRule.style.removeProperty(name);
+    else document.documentElement.style.removeProperty(name);
+  }
   function updateFunkyColors() {
     var cols = funkyColors();
-    document.documentElement.style.setProperty('--funky-grad', funkyGradientCss(cols));
-    document.documentElement.style.setProperty('--scheme-grad', schemeGradientCss());
+    setBgVar('--funky-grad', funkyGradientCss(cols));
+    setBgVar('--scheme-grad', schemeGradientCss());
     if (window.FunkyBG) {
       // 浅色弱暗化（清淡可读）、深色强暗化（浓郁），随深浅切换
       if (window.FunkyBG.setIntensity) window.FunkyBG.setIntensity(isDarkMode() ? 0.85 : 0.35);
       if (window.FunkyBG.isActive()) window.FunkyBG.setColors(cols);
     }
+    if (window.SideRays) {
+      if (window.SideRays.setIntensity) window.SideRays.setIntensity(isDarkMode() ? 0.9 : 0.95);
+      if (window.SideRays.isActive()) window.SideRays.setColors(sideRaysColors());
+    }
     return cols;
   }
 
-  // --- 背景色循环（彩虹）：只让派生色背景循环，UI 强调色不变 ---
-  var bgCycleOn = false, bgCycleHue = 0, bgCycleRAF = null, bgCycleStart = 0, bgCycleLast = 0;
-  function materialDerivesColor(m) {
-    return m === 'gradient' || m === 'aurora' || m === 'funky';
-  }
-  // 背景派生用的基色 [hue(0-1), sat]：循环时用循环色相，否则取当前强调色
+  // --- 「循环色」配色：整套强调色随色相循环 ---
+  // UI 强调色（--color-primary 及各处半透明 color-mix 派生）由 CSS 动画(--cycle-hue)驱动，
+  // 极光/渐变同样跟随 --color-primary（CSS），全程不写 CSS，避免 devtools 样式面板每帧重绘。
+  // 流光/光线是 WebGL，需 JS 每帧把循环色相喂给着色器（仅更新 WebGL，不碰 CSS）。
+  var schemeCycleHue = 0, schemeCycleRAF = null, schemeCycleStart = 0, schemeCycleLast = 0;
+  function schemeIsCycle() { return (appSettings.colorScheme || '') === 'cycle'; }
+  // 背景派生用的基色 [hue(0-1), sat]：循环色用循环色相，否则取当前强调色
   function bgBaseHsl() {
-    if (bgCycleOn) return [(((bgCycleHue % 360) + 360) % 360) / 360, 0.72];
+    if (schemeIsCycle()) return [(((schemeCycleHue % 360) + 360) % 360) / 360, 0.72];
     var hsl = rgbToHsl.apply(null, hexToRgb01(getComputedStyle(document.documentElement).getPropertyValue('--color-primary')));
     return [hsl[0], hsl[1]];
   }
-  function bgCycleFrame(now) {
-    bgCycleRAF = requestAnimationFrame(bgCycleFrame);
-    if (now - bgCycleLast < 60) return; // ~16fps，省电
-    bgCycleLast = now;
-    bgCycleHue = (now - bgCycleStart) / 1000 * 7; // 7°/秒 ≈ 51s 一圈
-    // 极光：写入 CSS 变量（aurora 用 --bg-primary-rgb，自动跟随）
-    var dark = isDarkMode();
-    var c = hslToRgb01((((bgCycleHue % 360) + 360) % 360) / 360, dark ? 0.60 : 0.72, dark ? 0.52 : 0.56);
-    document.documentElement.style.setProperty('--bg-primary-rgb', Math.round(c[0] * 255) + ', ' + Math.round(c[1] * 255) + ', ' + Math.round(c[2] * 255));
-    // 渐变/流光：重算派生色
+  function schemeCycleFrame(now) {
+    schemeCycleRAF = requestAnimationFrame(schemeCycleFrame);
+    if (now - schemeCycleLast < 60) return; // ~16fps，省电
+    schemeCycleLast = now;
+    schemeCycleHue = (now - schemeCycleStart) / 1000 * 7; // 7°/秒 ≈ 51s 一圈（与 CSS 动画同速）
     var mat = appSettings.backgroundMaterial;
-    if (mat === 'funky' || mat === 'gradient') updateFunkyColors();
+    if (mat === 'funky') {
+      if (window.FunkyBG && window.FunkyBG.isActive()) window.FunkyBG.setColors(funkyColors());
+    } else if (mat === 'siderays') {
+      if (window.SideRays && window.SideRays.isActive()) window.SideRays.setColors(sideRaysColors());
+    }
   }
-  function startBgCycle() {
-    if (bgCycleRAF) return;
-    bgCycleOn = true;
-    bgCycleStart = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    bgCycleLast = 0;
-    bgCycleRAF = requestAnimationFrame(bgCycleFrame);
+  function startSchemeCycle() {
+    if (schemeCycleRAF) return;
+    schemeCycleStart = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    schemeCycleLast = 0;
+    schemeCycleRAF = requestAnimationFrame(schemeCycleFrame);
   }
-  function stopBgCycle() {
-    if (bgCycleRAF) { cancelAnimationFrame(bgCycleRAF); bgCycleRAF = null; }
-    if (!bgCycleOn) return;
-    bgCycleOn = false;
-    document.documentElement.style.removeProperty('--bg-primary-rgb'); // 回落到 var(--color-primary-rgb)
-    updateFunkyColors(); // 渐变/流光回到方案色
+  function stopSchemeCycle() {
+    if (schemeCycleRAF) { cancelAnimationFrame(schemeCycleRAF); schemeCycleRAF = null; }
   }
-  function refreshBgCycle() {
-    if (appSettings.bgCycle && materialDerivesColor(appSettings.backgroundMaterial)) startBgCycle();
-    else stopBgCycle();
+  // 循环色仅在 WebGL 背景（流光/光线）下需要 JS 驱动；其它情况纯 CSS 动画即可
+  function refreshSchemeCycle() {
+    var mat = appSettings.backgroundMaterial;
+    if (schemeIsCycle() && (mat === 'funky' || mat === 'siderays')) startSchemeCycle();
+    else stopSchemeCycle();
   }
 
   function applyBackgroundMaterial() {
     var material = appSettings.backgroundMaterial || 'default';
 
-    document.body.classList.remove('material-mica', 'material-acrylic', 'material-aurora', 'material-funky', 'material-gradient');
+    document.body.classList.remove('material-mica', 'material-acrylic', 'material-aurora', 'material-funky', 'material-gradient', 'material-siderays');
 
     if (material === 'mica' && isWindows11) {
       document.body.classList.add('material-mica');
@@ -4069,10 +4172,12 @@
       document.body.classList.add('material-funky');
     } else if (material === 'gradient') {
       document.body.classList.add('material-gradient');
+    } else if (material === 'siderays') {
+      document.body.classList.add('material-siderays');
     }
 
-    // 根据材料是否派生色 + 循环开关，启停背景循环
-    refreshBgCycle();
+    // 循环色 + WebGL 背景时启动 JS 驱动；否则停止
+    refreshSchemeCycle();
     // 刷新跟随配色方案的派生背景（流光色 / 渐变色 CSS 变量）
     var cols = updateFunkyColors();
 
@@ -4083,16 +4188,42 @@
       window.FunkyBG.stop();
     }
 
-    // 极光/流光/渐变为纯前端效果，原生窗口仍用普通（不透明）材料
-    invoke('setBackgroundMaterial', (material === 'aurora' || material === 'funky' || material === 'gradient') ? 'default' : material);
+    // 光线：启动 WebGL 背景；其它材料停止释放
+    if (material === 'siderays') {
+      if (window.SideRays) window.SideRays.start(sideRaysColors());
+    } else if (window.SideRays) {
+      window.SideRays.stop();
+    }
+
+    // 极光/流光/渐变/光线为纯前端效果，原生窗口仍用普通（不透明）材料
+    invoke('setBackgroundMaterial', (material === 'aurora' || material === 'funky' || material === 'gradient' || material === 'siderays') ? 'default' : material);
   }
 
   // 系统深浅切换时刷新跟随配色方案的派生背景（流光色 / 渐变色，强调色与底色深浅值不同）
   try {
     var _mqDark = window.matchMedia('(prefers-color-scheme: dark)');
-    var _onSchemeFlip = function () { updateFunkyColors(); };
+    var _onSchemeFlip = function () {
+      if ((appSettings.colorScheme || '') === 'custom') applyCustomColor(); // 自定义色按深浅重算变体
+      if (window.Coloris) { try { Coloris({ themeMode: isDarkMode() ? 'dark' : 'light' }); } catch (e) {} }
+      updateFunkyColors();
+    };
     if (_mqDark.addEventListener) _mqDark.addEventListener('change', _onSchemeFlip);
     else if (_mqDark.addListener) _mqDark.addListener(_onSchemeFlip);
+  } catch (e) {}
+
+  // Coloris 色盘一次性初始化（本地引入；关闭透明度；hex 输出；跟随深浅）
+  try {
+    if (window.Coloris) {
+      Coloris({
+        wrap: false,
+        alpha: false,
+        format: 'hex',
+        focusInput: false,
+        margin: 6,
+        themeMode: isDarkMode() ? 'dark' : 'light',
+        swatches: (appSettings.customColorHistory || []).slice() // 预设取自历史记录
+      });
+    }
   } catch (e) {}
 
   function bindSettingsPageEvents() {
@@ -4132,20 +4263,44 @@
       });
     });
 
-    // 配色方案切换
-    page.querySelectorAll('.settings-scheme-btn').forEach(function (btn) {
+    // 配色方案切换（预设；自定义另行处理）
+    page.querySelectorAll('.settings-scheme-btn:not(.settings-scheme-custom)').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var scheme = btn.dataset.scheme;
         if (scheme === (appSettings.colorScheme || 'blue')) return;
         appSettings.colorScheme = scheme;
         saveSettings(appSettings);
+        clearCustomColor(); // 切回预设时移除自定义内联强调色，交还给 CSS [data-scheme]
         document.documentElement.setAttribute('data-scheme', scheme);
         page.querySelectorAll('.settings-scheme-btn').forEach(function (el) {
           el.classList.toggle('active', el.dataset.scheme === scheme);
         });
-        updateFunkyColors(); // 流光开启时跟随新配色
+        refreshSchemeCycle();   // 切到/离开「循环色」时启停 WebGL 驱动
+        updateFunkyColors();    // 流光/光线/渐变跟随新配色
       });
     });
+
+    // 自定义配色（Coloris 色盘，无透明度）
+    var customInput = document.getElementById('sp_customColor');
+    var customBtn = customInput ? customInput.closest('.settings-scheme-custom') : null;
+    if (customInput) {
+      var applyCustomPick = function (val, save) {
+        var hex = normalizeHex(val);
+        if (!hex) return;
+        appSettings.customColor = hex;
+        appSettings.colorScheme = 'custom';
+        document.documentElement.setAttribute('data-scheme', 'custom');
+        applyCustomColor();
+        if (customBtn) customBtn.style.setProperty('--sw', hex);
+        page.querySelectorAll('.settings-scheme-btn').forEach(function (el) {
+          el.classList.toggle('active', el === customBtn);
+        });
+        updateFunkyColors();
+        if (save) recordCustomColor(hex); // 关闭色盘时记入历史并落盘（含 saveSettings）
+      };
+      customInput.addEventListener('input', function () { applyCustomPick(customInput.value, false); }); // 拖动实时预览
+      customInput.addEventListener('change', function () { applyCustomPick(customInput.value, true); });  // 关闭后落盘
+    }
 
     // 背景材料切换（自定义浮层下拉）
     var bgDd = document.getElementById('sp_bgMaterial');
@@ -4176,26 +4331,14 @@
           var enabled = materialHasBackdrop(material);
           if (opacityItem) opacityItem.classList.toggle('settings-item--disabled', !enabled);
           if (opacitySlider) opacitySlider.disabled = !enabled;
-          // 联动背景循环开关启用/禁用
-          var cycleItem = document.getElementById('sp_bgCycleItem');
-          var cycleInput = document.getElementById('sp_bgCycle');
-          var derives = materialDerivesColor(material);
-          if (cycleItem) cycleItem.classList.toggle('settings-item--disabled', !derives);
-          if (cycleInput) cycleInput.disabled = !derives;
+          // 循环色 + WebGL 背景时需要 JS 驱动，切换材料后刷新
+          refreshSchemeCycle();
         });
       });
       document.addEventListener('click', function (e) {
         if (bgDd.isConnected && !bgDd.contains(e.target)) bgDd.classList.remove('open');
       });
     }
-
-    // 背景色循环开关
-    var bgCycleEl = document.getElementById('sp_bgCycle');
-    if (bgCycleEl) bgCycleEl.addEventListener('change', function () {
-      appSettings.bgCycle = this.checked;
-      saveSettings(appSettings);
-      refreshBgCycle();
-    });
 
     // 详情页透明度
     var opacitySlider = document.getElementById('sp_detailOpacity');
